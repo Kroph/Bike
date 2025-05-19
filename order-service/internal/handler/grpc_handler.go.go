@@ -35,6 +35,10 @@ func (h *OrderGrpcHandler) CreateOrder(ctx context.Context, req *pb.CreateOrderR
 			Name:      item.Name,
 			Price:     item.Price,
 			Quantity:  int(item.Quantity),
+			FrameSize: item.FrameSize,
+			WheelSize: item.WheelSize,
+			Color:     item.Color,
+			BikeType:  item.BikeType,
 		})
 	}
 
@@ -196,6 +200,10 @@ func mapOrderToProto(order domain.Order) *pb.OrderResponse {
 			Name:      item.Name,
 			Price:     item.Price,
 			Quantity:  int32(item.Quantity),
+			FrameSize: item.FrameSize,
+			WheelSize: item.WheelSize,
+			Color:     item.Color,
+			BikeType:  item.BikeType,
 		})
 	}
 

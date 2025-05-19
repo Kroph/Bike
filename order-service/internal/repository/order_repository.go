@@ -105,7 +105,7 @@ func (r *PostgresOrderRepository) Create(ctx context.Context, order domain.Order
 
 func (r *PostgresOrderRepository) GetByID(ctx context.Context, id string) (domain.Order, error) {
 	orderQuery := `
-		SELECT id, user_id, status, total, pickup_date, created_at, updated_at
+		SELECT id, user_id, status, total, created_at, updated_at
 		FROM orders
 		WHERE id = $1
 	`
@@ -115,7 +115,6 @@ func (r *PostgresOrderRepository) GetByID(ctx context.Context, id string) (domai
 		&order.UserID,
 		&order.Status,
 		&order.Total,
-		&order.PickupDate,
 		&order.CreatedAt,
 		&order.UpdatedAt,
 	)
@@ -290,7 +289,7 @@ func (r *PostgresOrderRepository) List(ctx context.Context, filter domain.OrderF
 	}
 
 	itemsQuery := fmt.Sprintf(`
-		SELECT id, order_id, product_id, name, price, quantity
+		SELECT id, order_id, product_id, name, price, quantity, frame_size, wheel_size, color, bike_type
 		FROM order_items
 		WHERE order_id IN (%s)
 	`, placeholders)
@@ -310,6 +309,10 @@ func (r *PostgresOrderRepository) List(ctx context.Context, filter domain.OrderF
 			&item.Name,
 			&item.Price,
 			&item.Quantity,
+			&item.FrameSize,
+			&item.WheelSize,
+			&item.Color,
+			&item.BikeType,
 		)
 		if err != nil {
 			return nil, 0, err
