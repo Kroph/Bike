@@ -32,9 +32,13 @@ func NewPostgresProductRepository(db *sql.DB) *PostgresProductRepository {
 
 func (r *PostgresProductRepository) Create(ctx context.Context, product domain.Product) (domain.Product, error) {
 	query := `
-		INSERT INTO products (id, name, description, price, stock, category_id, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING id, name, description, price, stock, category_id, created_at, updated_at
+		INSERT INTO products (id, name, description, price, stock, category_id, 
+		                      frame_size, wheel_size, color, weight, bike_type, 
+		                      created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		RETURNING id, name, description, price, stock, category_id, 
+		          frame_size, wheel_size, color, weight, bike_type, 
+		          created_at, updated_at
 	`
 
 	product.ID = uuid.New().String()
@@ -50,6 +54,11 @@ func (r *PostgresProductRepository) Create(ctx context.Context, product domain.P
 		product.Price,
 		product.Stock,
 		product.CategoryID,
+		product.FrameSize,
+		product.WheelSize,
+		product.Color,
+		product.Weight,
+		product.BikeType,
 		product.CreatedAt,
 		product.UpdatedAt,
 	).Scan(
@@ -59,6 +68,11 @@ func (r *PostgresProductRepository) Create(ctx context.Context, product domain.P
 		&product.Price,
 		&product.Stock,
 		&product.CategoryID,
+		&product.FrameSize,
+		&product.WheelSize,
+		&product.Color,
+		&product.Weight,
+		&product.BikeType,
 		&product.CreatedAt,
 		&product.UpdatedAt,
 	)
@@ -72,7 +86,9 @@ func (r *PostgresProductRepository) Create(ctx context.Context, product domain.P
 
 func (r *PostgresProductRepository) GetByID(ctx context.Context, id string) (domain.Product, error) {
 	query := `
-		SELECT id, name, description, price, stock, category_id, created_at, updated_at
+		SELECT id, name, description, price, stock, category_id, 
+		       frame_size, wheel_size, color, weight, bike_type, 
+		       created_at, updated_at
 		FROM products
 		WHERE id = $1
 	`
@@ -85,6 +101,11 @@ func (r *PostgresProductRepository) GetByID(ctx context.Context, id string) (dom
 		&product.Price,
 		&product.Stock,
 		&product.CategoryID,
+		&product.FrameSize,
+		&product.WheelSize,
+		&product.Color,
+		&product.Weight,
+		&product.BikeType,
 		&product.CreatedAt,
 		&product.UpdatedAt,
 	)
@@ -102,8 +123,10 @@ func (r *PostgresProductRepository) GetByID(ctx context.Context, id string) (dom
 func (r *PostgresProductRepository) Update(ctx context.Context, product domain.Product) error {
 	query := `
 		UPDATE products
-		SET name = $1, description = $2, price = $3, stock = $4, category_id = $5, updated_at = $6
-		WHERE id = $7
+		SET name = $1, description = $2, price = $3, stock = $4, category_id = $5,
+		    frame_size = $6, wheel_size = $7, color = $8, weight = $9, bike_type = $10, 
+		    updated_at = $11
+		WHERE id = $12
 	`
 
 	product.UpdatedAt = time.Now()
@@ -116,6 +139,11 @@ func (r *PostgresProductRepository) Update(ctx context.Context, product domain.P
 		product.Price,
 		product.Stock,
 		product.CategoryID,
+		product.FrameSize,
+		product.WheelSize,
+		product.Color,
+		product.Weight,
+		product.BikeType,
 		product.UpdatedAt,
 		product.ID,
 	)
@@ -123,15 +151,11 @@ func (r *PostgresProductRepository) Update(ctx context.Context, product domain.P
 	return err
 }
 
-func (r *PostgresProductRepository) Delete(ctx context.Context, id string) error {
-	query := `DELETE FROM products WHERE id = $1`
-	_, err := r.db.ExecContext(ctx, query, id)
-	return err
-}
-
 func (r *PostgresProductRepository) List(ctx context.Context, filter domain.ProductFilter) ([]domain.Product, int, error) {
 	baseQuery := `
-		SELECT id, name, description, price, stock, category_id, created_at, updated_at
+		SELECT id, name, description, price, stock, category_id, 
+		       frame_size, wheel_size, color, weight, bike_type, 
+		       created_at, updated_at
 		FROM products
 		WHERE 1=1
 	`
@@ -165,7 +189,38 @@ func (r *PostgresProductRepository) List(ctx context.Context, filter domain.Prod
 	}
 
 	if filter.InStock != nil && *filter.InStock {
-		conditions += fmt.Sprintf(" AND stock > 0")
+		conditions += " AND stock > 0"
+	}
+
+	// Bicycle-specific filters
+	if filter.BikeType != "" {
+		conditions += fmt.Sprintf(" AND bike_type = $%d", argIndex)
+		args = append(args, filter.BikeType)
+		argIndex++
+	}
+
+	if filter.FrameSize != "" {
+		conditions += fmt.Sprintf(" AND frame_size = $%d", argIndex)
+		args = append(args, filter.FrameSize)
+		argIndex++
+	}
+
+	if filter.WheelSize != "" {
+		conditions += fmt.Sprintf(" AND wheel_size = $%d", argIndex)
+		args = append(args, filter.WheelSize)
+		argIndex++
+	}
+
+	if filter.Color != "" {
+		conditions += fmt.Sprintf(" AND color = $%d", argIndex)
+		args = append(args, filter.Color)
+		argIndex++
+	}
+
+	if filter.MaxWeight != nil {
+		conditions += fmt.Sprintf(" AND weight <= $%d", argIndex)
+		args = append(args, *filter.MaxWeight)
+		argIndex++
 	}
 
 	limit := 10
@@ -198,6 +253,11 @@ func (r *PostgresProductRepository) List(ctx context.Context, filter domain.Prod
 			&product.Price,
 			&product.Stock,
 			&product.CategoryID,
+			&product.FrameSize,
+			&product.WheelSize,
+			&product.Color,
+			&product.Weight,
+			&product.BikeType,
 			&product.CreatedAt,
 			&product.UpdatedAt,
 		)
@@ -214,4 +274,10 @@ func (r *PostgresProductRepository) List(ctx context.Context, filter domain.Prod
 	}
 
 	return products, total, nil
+}
+
+func (r *PostgresProductRepository) Delete(ctx context.Context, id string) error {
+	query := `DELETE FROM products WHERE id = $1`
+	_, err := r.db.ExecContext(ctx, query, id)
+	return err
 }

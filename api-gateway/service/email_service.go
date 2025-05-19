@@ -35,7 +35,7 @@ func NewEmailService(from, password, host, port string) EmailService {
 }
 
 func (s *emailService) SendOrderConfirmation(to string, orderID string, orderDetails map[string]interface{}) error {
-	subject := fmt.Sprintf("Order Confirmation #%s", orderID)
+	subject := fmt.Sprintf("Bicycle Store - Order Confirmation #%s", orderID)
 
 	// Add the order ID to the details map
 	orderDetails["OrderID"] = orderID
@@ -47,11 +47,11 @@ func (s *emailService) SendOrderConfirmation(to string, orderID string, orderDet
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Order Confirmation</title>
+    <title>Bicycle Store - Order Confirmation</title>
     <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { text-align: center; padding: 10px; background-color: #f8f9fa; }
+        .header { text-align: center; padding: 10px; background-color: #4CAF50; color: white; }
         .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #6c757d; }
         table { width: 100%; border-collapse: collapse; margin: 20px 0; }
         th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
@@ -62,10 +62,10 @@ func (s *emailService) SendOrderConfirmation(to string, orderID string, orderDet
 <body>
     <div class="container">
         <div class="header">
-            <h1>Order Confirmation</h1>
+            <h1>Bicycle Store - Order Confirmation</h1>
         </div>
         
-        <p>Dear Customer,</p>
+        <p>Dear Cyclist,</p>
         
         <p>Thank you for your order. We're pleased to confirm that we've received your order and it's being processed.</p>
         
@@ -75,7 +75,10 @@ func (s *emailService) SendOrderConfirmation(to string, orderID string, orderDet
         
         <table>
             <tr>
-                <th>Product</th>
+                <th>Bicycle</th>
+                <th>// api-gateway/service/email_service.go - Continue email template
+
+                <th>Bicycle</th>
                 <th>Quantity</th>
                 <th>Price</th>
                 <th>Subtotal</th>
@@ -94,12 +97,17 @@ func (s *emailService) SendOrderConfirmation(to string, orderID string, orderDet
             </tr>
         </table>
         
-        <p>We'll send you another email when your order ships.</p>
+        <p>We'll send you another email when your bicycle is ready for pickup at our store.</p>
         
-        <p>Thank you for shopping with us!</p>
+        <p><strong>Pickup Information:</strong><br>
+        Our store is open Monday to Saturday from 9:00 AM to 7:00 PM.<br>
+        Please bring a valid ID when picking up your bicycle.</p>
+        
+        <p>Thank you for shopping with Bicycle Store!</p>
         
         <div class="footer">
             <p>This is an automated email, please do not reply to this message.</p>
+            <p>Bicycle Store - Your Cycling Partner</p>
         </div>
     </div>
 </body>
@@ -118,12 +126,12 @@ func (s *emailService) SendOrderConfirmation(to string, orderID string, orderDet
 }
 
 func (s *emailService) SendEmailVerification(to string, username string, verificationToken string) error {
-	subject := "Verify Your Email Address"
+	subject := "Bicycle Store - Verify Your Email Address"
 
 	// Create a template data map
 	data := map[string]string{
 		"Username":         username,
-		"VerificationLink": fmt.Sprintf("https://yourdomain.com/verify-email?token=%s", verificationToken),
+		"VerificationLink": fmt.Sprintf("https://bicycle-store.com/verify-email?token=%s", verificationToken),
 	}
 
 	// Parse the HTML email template
@@ -132,25 +140,25 @@ func (s *emailService) SendEmailVerification(to string, username string, verific
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Email Verification</title>
+    <title>Bicycle Store - Email Verification</title>
     <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { text-align: center; padding: 10px; background-color: #f8f9fa; }
+        .header { text-align: center; padding: 10px; background-color: #4CAF50; color: white; }
         .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #6c757d; }
-        .button { display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; 
+        .button { display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; 
                   text-decoration: none; border-radius: 4px; margin: 20px 0; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>Verify Your Email Address</h1>
+            <h1>Bicycle Store - Verify Your Email Address</h1>
         </div>
         
         <p>Hello {{.Username}},</p>
         
-        <p>Thank you for registering. Please verify your email address by clicking the button below:</p>
+        <p>Thank you for registering with Bicycle Store. Please verify your email address by clicking the button below:</p>
         
         <p style="text-align: center;">
             <a href="{{.VerificationLink}}" class="button">Verify Email</a>
@@ -162,8 +170,11 @@ func (s *emailService) SendEmailVerification(to string, username string, verific
         
         <p>This link is valid for 24 hours. If you didn't request this email, please ignore it.</p>
         
+        <p>Happy cycling!</p>
+        
         <div class="footer">
             <p>This is an automated email, please do not reply to this message.</p>
+            <p>Bicycle Store - Your Cycling Partner</p>
         </div>
     </div>
 </body>

@@ -40,26 +40,27 @@ func NewNatsService(natsURL string, orderHandler OrderEventHandler) (NatsService
 }
 
 func (s *natsService) StartConsuming(ctx context.Context) error {
-	sub, err := s.conn.Subscribe("order.created", func(msg *nats.Msg) {
-		log.Printf("[NATS-CONSUMER] Received message from subject %s at %s", msg.Subject, time.Now().Format(time.RFC3339))
+	sub, err := s.conn.Subscribe("bicycle.order.created", func(msg *nats.Msg) {
+		log.Printf("[NATS-CONSUMER] Received bicycle order from subject %s at %s", msg.Subject, time.Now().Format(time.RFC3339))
 
 		var orderEvent events.OrderCreatedEvent
 		if err := json.Unmarshal(msg.Data, &orderEvent); err != nil {
-			log.Printf("[NATS-CONSUMER] Failed to unmarshal order event: %v", err)
+			log.Printf("[NATS-CONSUMER] Failed to unmarshal bicycle order event: %v", err)
 			return
 		}
 
-		log.Printf("[NATS-CONSUMER] Processing order %s created at %s", orderEvent.OrderID, orderEvent.CreatedAt.Format(time.RFC3339))
+		log.Printf("[NATS-CONSUMER] Processing bicycle order %s created at %s, scheduled for pickup on %s",
+			orderEvent.OrderID, orderEvent.CreatedAt.Format(time.RFC3339), orderEvent.PickupDate)
 
 		if err := s.handler.HandleOrderCreated(ctx, orderEvent); err != nil {
-			log.Printf("[NATS-CONSUMER] Failed to handle order created event: %v", err)
+			log.Printf("[NATS-CONSUMER] Failed to handle bicycle order created event: %v", err)
 			return
 		}
 
-		log.Printf("[NATS-CONSUMER] Successfully processed order %s", orderEvent.OrderID)
+		log.Printf("[NATS-CONSUMER] Successfully processed bicycle order %s", orderEvent.OrderID)
 	})
 	if err != nil {
-		return fmt.Errorf("failed to subscribe to order.created: %v", err)
+		return fmt.Errorf("failed to subscribe to bicycle.order.created: %v", err)
 	}
 
 	s.subscription = sub

@@ -31,20 +31,50 @@ func NewNatsService(natsURL string) (NatsService, error) {
 	}, nil
 }
 
+func (s *natsService) Close() {
+	if s.conn != nil {
+		s.conn.Close()
+	}
+}
+
+type OrderCreatedEvent struct {
+	OrderID    string           `json:"order_id"`
+	UserID     string           `json:"user_id"`
+	Total      float64          `json:"total"`
+	Status     string           `json:"status"`
+	Items      []OrderItemEvent `json:"items"`
+	PickupDate string           `json:"pickup_date"` // Added for bike store
+	CreatedAt  time.Time        `json:"created_at"`
+}
+
+type OrderItemEvent struct {
+	ProductID string `json:"product_id"`
+	Quantity  int    `json:"quantity"`
+	FrameSize string `json:"frame_size"`
+	WheelSize string `json:"wheel_size"`
+	Color     string `json:"color"`
+	BikeType  string `json:"bike_type"`
+}
+
 func (s *natsService) PublishOrderCreated(order domain.Order) error {
 	msg := OrderCreatedEvent{
-		OrderID:   order.ID,
-		UserID:    order.UserID,
-		Total:     order.Total,
-		Status:    string(order.Status),
-		Items:     make([]OrderItemEvent, len(order.Items)),
-		CreatedAt: order.CreatedAt,
+		OrderID:    order.ID,
+		UserID:     order.UserID,
+		Total:      order.Total,
+		Status:     string(order.Status),
+		PickupDate: order.PickupDate,
+		Items:      make([]OrderItemEvent, len(order.Items)),
+		CreatedAt:  order.CreatedAt,
 	}
 
 	for i, item := range order.Items {
 		msg.Items[i] = OrderItemEvent{
 			ProductID: item.ProductID,
 			Quantity:  item.Quantity,
+			FrameSize: item.FrameSize,
+			WheelSize: item.WheelSize,
+			Color:     item.Color,
+			BikeType:  item.BikeType,
 		}
 	}
 
@@ -55,7 +85,7 @@ func (s *natsService) PublishOrderCreated(order domain.Order) error {
 
 	log.Printf("[NATS-PRODUCER] Publishing order created event for order %s at %s", order.ID, time.Now().Format(time.RFC3339))
 
-	if err := s.conn.Publish("order.created", data); err != nil {
+	if err := s.conn.Publish("bicycle.order.created", data); err != nil {
 		return fmt.Errorf("failed to publish message: %v", err)
 	}
 
@@ -66,24 +96,4 @@ func (s *natsService) PublishOrderCreated(order domain.Order) error {
 
 	log.Printf("[NATS-PRODUCER] Order created event published successfully for order %s", order.ID)
 	return nil
-}
-
-func (s *natsService) Close() {
-	if s.conn != nil {
-		s.conn.Close()
-	}
-}
-
-type OrderCreatedEvent struct {
-	OrderID   string           `json:"order_id"`
-	UserID    string           `json:"user_id"`
-	Total     float64          `json:"total"`
-	Status    string           `json:"status"`
-	Items     []OrderItemEvent `json:"items"`
-	CreatedAt time.Time        `json:"created_at"`
-}
-
-type OrderItemEvent struct {
-	ProductID string `json:"product_id"`
-	Quantity  int    `json:"quantity"`
 }

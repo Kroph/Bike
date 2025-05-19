@@ -34,6 +34,11 @@ func (h *ProductGrpcHandler) CreateProduct(ctx context.Context, req *pb.CreatePr
 		Price:       req.Price,
 		Stock:       int(req.Stock),
 		CategoryID:  req.CategoryId,
+		FrameSize:   req.FrameSize,
+		WheelSize:   req.WheelSize,
+		Color:       req.Color,
+		Weight:      req.Weight,
+		BikeType:    req.BikeType,
 	}
 
 	createdProduct, err := h.productService.CreateProduct(ctx, product)
@@ -48,30 +53,14 @@ func (h *ProductGrpcHandler) CreateProduct(ctx context.Context, req *pb.CreatePr
 		Description: createdProduct.Description,
 		Price:       createdProduct.Price,
 		Stock:       int32(createdProduct.Stock),
-		CategoryId:  createdProduct.CategoryID,
+		CategoryID:  createdProduct.CategoryID,
+		FrameSize:   createdProduct.FrameSize,
+		WheelSize:   createdProduct.WheelSize,
+		Color:       createdProduct.Color,
+		Weight:      createdProduct.Weight,
+		BikeType:    createdProduct.BikeType,
 		CreatedAt:   timestamppb.New(createdProduct.CreatedAt),
 		UpdatedAt:   timestamppb.New(createdProduct.UpdatedAt),
-	}, nil
-}
-
-func (h *ProductGrpcHandler) GetProduct(ctx context.Context, req *pb.ProductIDRequest) (*pb.ProductResponse, error) {
-	log.Printf("Received GetProduct request for ID: %s", req.Id)
-
-	product, err := h.productService.GetProductByID(ctx, req.Id)
-	if err != nil {
-		log.Printf("Failed to get product: %v", err)
-		return nil, status.Errorf(codes.NotFound, "product not found: %v", err)
-	}
-
-	return &pb.ProductResponse{
-		Id:          product.ID,
-		Name:        product.Name,
-		Description: product.Description,
-		Price:       product.Price,
-		Stock:       int32(product.Stock),
-		CategoryId:  product.CategoryID,
-		CreatedAt:   timestamppb.New(product.CreatedAt),
-		UpdatedAt:   timestamppb.New(product.UpdatedAt),
 	}, nil
 }
 
@@ -85,6 +74,11 @@ func (h *ProductGrpcHandler) UpdateProduct(ctx context.Context, req *pb.UpdatePr
 		Price:       req.Price,
 		Stock:       int(req.Stock),
 		CategoryID:  req.CategoryId,
+		FrameSize:   req.FrameSize,
+		WheelSize:   req.WheelSize,
+		Color:       req.Color,
+		Weight:      req.Weight,
+		BikeType:    req.BikeType,
 	}
 
 	if err := h.productService.UpdateProduct(ctx, product); err != nil {
@@ -105,23 +99,14 @@ func (h *ProductGrpcHandler) UpdateProduct(ctx context.Context, req *pb.UpdatePr
 		Description: updatedProduct.Description,
 		Price:       updatedProduct.Price,
 		Stock:       int32(updatedProduct.Stock),
-		CategoryId:  updatedProduct.CategoryID,
+		CategoryID:  updatedProduct.CategoryID,
+		FrameSize:   updatedProduct.FrameSize,
+		WheelSize:   updatedProduct.WheelSize,
+		Color:       updatedProduct.Color,
+		Weight:      updatedProduct.Weight,
+		BikeType:    updatedProduct.BikeType,
 		CreatedAt:   timestamppb.New(updatedProduct.CreatedAt),
 		UpdatedAt:   timestamppb.New(updatedProduct.UpdatedAt),
-	}, nil
-}
-
-func (h *ProductGrpcHandler) DeleteProduct(ctx context.Context, req *pb.ProductIDRequest) (*pb.DeleteResponse, error) {
-	log.Printf("Received DeleteProduct request for ID: %s", req.Id)
-
-	if err := h.productService.DeleteProduct(ctx, req.Id); err != nil {
-		log.Printf("Failed to delete product: %v", err)
-		return nil, status.Errorf(codes.Internal, "failed to delete product: %v", err)
-	}
-
-	return &pb.DeleteResponse{
-		Success: true,
-		Message: "Product deleted successfully",
 	}, nil
 }
 
@@ -149,6 +134,17 @@ func (h *ProductGrpcHandler) ListProducts(ctx context.Context, req *pb.ListProdu
 		filter.InStock = &inStock
 	}
 
+	// Bicycle specific filters
+	filter.BikeType = req.Filter.BikeType
+	filter.FrameSize = req.Filter.FrameSize
+	filter.WheelSize = req.Filter.WheelSize
+	filter.Color = req.Filter.Color
+
+	if req.Filter.MaxWeight > 0 {
+		maxWeight := req.Filter.MaxWeight
+		filter.MaxWeight = &maxWeight
+	}
+
 	products, total, err := h.productService.ListProducts(ctx, filter)
 	if err != nil {
 		log.Printf("Failed to list products: %v", err)
@@ -163,7 +159,12 @@ func (h *ProductGrpcHandler) ListProducts(ctx context.Context, req *pb.ListProdu
 			Description: product.Description,
 			Price:       product.Price,
 			Stock:       int32(product.Stock),
-			CategoryId:  product.CategoryID,
+			CategoryID:  product.CategoryID,
+			FrameSize:   product.FrameSize,
+			WheelSize:   product.WheelSize,
+			Color:       product.Color,
+			Weight:      product.Weight,
+			BikeType:    product.BikeType,
 			CreatedAt:   timestamppb.New(product.CreatedAt),
 			UpdatedAt:   timestamppb.New(product.UpdatedAt),
 		})
@@ -174,6 +175,41 @@ func (h *ProductGrpcHandler) ListProducts(ctx context.Context, req *pb.ListProdu
 		Total:    int32(total),
 		Page:     int32(filter.Page),
 		PageSize: int32(filter.PageSize),
+	}, nil
+}
+
+func (h *ProductGrpcHandler) GetProduct(ctx context.Context, req *pb.ProductIDRequest) (*pb.ProductResponse, error) {
+	log.Printf("Received GetProduct request for ID: %s", req.Id)
+
+	product, err := h.productService.GetProductByID(ctx, req.Id)
+	if err != nil {
+		log.Printf("Failed to get product: %v", err)
+		return nil, status.Errorf(codes.NotFound, "product not found: %v", err)
+	}
+
+	return &pb.ProductResponse{
+		Id:          product.ID,
+		Name:        product.Name,
+		Description: product.Description,
+		Price:       product.Price,
+		Stock:       int32(product.Stock),
+		CategoryId:  product.CategoryID,
+		CreatedAt:   timestamppb.New(product.CreatedAt),
+		UpdatedAt:   timestamppb.New(product.UpdatedAt),
+	}, nil
+}
+
+func (h *ProductGrpcHandler) DeleteProduct(ctx context.Context, req *pb.ProductIDRequest) (*pb.DeleteResponse, error) {
+	log.Printf("Received DeleteProduct request for ID: %s", req.Id)
+
+	if err := h.productService.DeleteProduct(ctx, req.Id); err != nil {
+		log.Printf("Failed to delete product: %v", err)
+		return nil, status.Errorf(codes.Internal, "failed to delete product: %v", err)
+	}
+
+	return &pb.DeleteResponse{
+		Success: true,
+		Message: "Product deleted successfully",
 	}, nil
 }
 

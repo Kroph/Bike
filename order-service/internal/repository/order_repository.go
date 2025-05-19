@@ -43,9 +43,9 @@ func (r *PostgresOrderRepository) Create(ctx context.Context, order domain.Order
 	order.Status = domain.OrderStatusPending
 
 	orderQuery := `
-		INSERT INTO orders (id, user_id, status, total, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, user_id, status, total, created_at, updated_at
+		INSERT INTO orders (id, user_id, status, total, pickup_date, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, user_id, status, total, pickup_date, created_at, updated_at
 	`
 	err = tx.QueryRowContext(
 		ctx,
@@ -54,6 +54,7 @@ func (r *PostgresOrderRepository) Create(ctx context.Context, order domain.Order
 		order.UserID,
 		order.Status,
 		order.Total,
+		order.PickupDate,
 		order.CreatedAt,
 		order.UpdatedAt,
 	).Scan(
@@ -61,6 +62,7 @@ func (r *PostgresOrderRepository) Create(ctx context.Context, order domain.Order
 		&order.UserID,
 		&order.Status,
 		&order.Total,
+		&order.PickupDate,
 		&order.CreatedAt,
 		&order.UpdatedAt,
 	)
@@ -73,8 +75,9 @@ func (r *PostgresOrderRepository) Create(ctx context.Context, order domain.Order
 		order.Items[i].OrderID = order.ID
 
 		itemQuery := `
-			INSERT INTO order_items (id, order_id, product_id, name, price, quantity)
-			VALUES ($1, $2, $3, $4, $5, $6)
+			INSERT INTO order_items (id, order_id, product_id, name, price, quantity, 
+			                         frame_size, wheel_size, color, bike_type)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		`
 		_, err = tx.ExecContext(
 			ctx,
@@ -85,6 +88,10 @@ func (r *PostgresOrderRepository) Create(ctx context.Context, order domain.Order
 			order.Items[i].Name,
 			order.Items[i].Price,
 			order.Items[i].Quantity,
+			order.Items[i].FrameSize,
+			order.Items[i].WheelSize,
+			order.Items[i].Color,
+			order.Items[i].BikeType,
 		)
 		if err != nil {
 			return domain.Order{}, err
@@ -100,7 +107,7 @@ func (r *PostgresOrderRepository) Create(ctx context.Context, order domain.Order
 
 func (r *PostgresOrderRepository) GetByID(ctx context.Context, id string) (domain.Order, error) {
 	orderQuery := `
-		SELECT id, user_id, status, total, created_at, updated_at
+		SELECT id, user_id, status, total, pickup_date, created_at, updated_at
 		FROM orders
 		WHERE id = $1
 	`
@@ -110,6 +117,7 @@ func (r *PostgresOrderRepository) GetByID(ctx context.Context, id string) (domai
 		&order.UserID,
 		&order.Status,
 		&order.Total,
+		&order.PickupDate,
 		&order.CreatedAt,
 		&order.UpdatedAt,
 	)
@@ -121,7 +129,8 @@ func (r *PostgresOrderRepository) GetByID(ctx context.Context, id string) (domai
 	}
 
 	itemsQuery := `
-		SELECT id, order_id, product_id, name, price, quantity
+		SELECT id, order_id, product_id, name, price, quantity, 
+		       frame_size, wheel_size, color, bike_type
 		FROM order_items
 		WHERE order_id = $1
 	`
@@ -141,6 +150,10 @@ func (r *PostgresOrderRepository) GetByID(ctx context.Context, id string) (domai
 			&item.Name,
 			&item.Price,
 			&item.Quantity,
+			&item.FrameSize,
+			&item.WheelSize,
+			&item.Color,
+			&item.BikeType,
 		)
 		if err != nil {
 			return domain.Order{}, err

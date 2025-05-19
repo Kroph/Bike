@@ -158,6 +158,11 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 		Price       float64 `json:"price" binding:"required,gt=0"`
 		Stock       int32   `json:"stock" binding:"required,gte=0"`
 		CategoryID  string  `json:"category_id" binding:"required"`
+		FrameSize   string  `json:"frame_size" binding:"required"`
+		WheelSize   string  `json:"wheel_size" binding:"required"`
+		Color       string  `json:"color" binding:"required"`
+		Weight      float64 `json:"weight" binding:"required,gt=0"`
+		BikeType    string  `json:"bike_type" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -170,7 +175,12 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 		Description: req.Description,
 		Price:       req.Price,
 		Stock:       req.Stock,
-		CategoryId:  req.CategoryID,
+		CategoryID:  req.CategoryID,
+		FrameSize:   req.FrameSize,
+		WheelSize:   req.WheelSize,
+		Color:       req.Color,
+		Weight:      req.Weight,
+		BikeType:    req.BikeType,
 	})
 
 	if err != nil {
@@ -179,18 +189,6 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, product)
-}
-
-func (h *Handler) GetProduct(c *gin.Context) {
-	id := c.Param("id")
-
-	product, err := h.grpcClients.GetProduct(c.Request.Context(), id)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
-		return
-	}
-
-	c.JSON(http.StatusOK, product)
 }
 
 func (h *Handler) UpdateProduct(c *gin.Context) {
@@ -202,6 +200,11 @@ func (h *Handler) UpdateProduct(c *gin.Context) {
 		Price       float64 `json:"price"`
 		Stock       int32   `json:"stock"`
 		CategoryID  string  `json:"category_id"`
+		FrameSize   string  `json:"frame_size"`
+		WheelSize   string  `json:"wheel_size"`
+		Color       string  `json:"color"`
+		Weight      float64 `json:"weight"`
+		BikeType    string  `json:"bike_type"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -215,7 +218,12 @@ func (h *Handler) UpdateProduct(c *gin.Context) {
 		Description: req.Description,
 		Price:       req.Price,
 		Stock:       req.Stock,
-		CategoryId:  req.CategoryID,
+		CategoryID:  req.CategoryID,
+		FrameSize:   req.FrameSize,
+		WheelSize:   req.WheelSize,
+		Color:       req.Color,
+		Weight:      req.Weight,
+		BikeType:    req.BikeType,
 	})
 
 	if err != nil {
@@ -224,21 +232,6 @@ func (h *Handler) UpdateProduct(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, product)
-}
-
-func (h *Handler) DeleteProduct(c *gin.Context) {
-	id := c.Param("id")
-
-	response, err := h.grpcClients.DeleteProduct(c.Request.Context(), id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": response.Success,
-		"message": response.Message,
-	})
 }
 
 func (h *Handler) ListProducts(c *gin.Context) {
@@ -264,6 +257,29 @@ func (h *Handler) ListProducts(c *gin.Context) {
 		filter.InStock = true
 	}
 
+	// Bicycle specific filters
+	if bikeType := c.Query("bike_type"); bikeType != "" {
+		filter.BikeType = bikeType
+	}
+
+	if frameSize := c.Query("frame_size"); frameSize != "" {
+		filter.FrameSize = frameSize
+	}
+
+	if wheelSize := c.Query("wheel_size"); wheelSize != "" {
+		filter.WheelSize = wheelSize
+	}
+
+	if color := c.Query("color"); color != "" {
+		filter.Color = color
+	}
+
+	if maxWeight := c.Query("max_weight"); maxWeight != "" {
+		if maxWeightFloat, err := strconv.ParseFloat(maxWeight, 64); err == nil {
+			filter.MaxWeight = maxWeightFloat
+		}
+	}
+
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
 
@@ -277,6 +293,33 @@ func (h *Handler) ListProducts(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+func (h *Handler) GetProduct(c *gin.Context) {
+	id := c.Param("id")
+
+	product, err := h.grpcClients.GetProduct(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, product)
+}
+
+func (h *Handler) DeleteProduct(c *gin.Context) {
+	id := c.Param("id")
+
+	response, err := h.grpcClients.DeleteProduct(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": response.Success,
+		"message": response.Message,
+	})
 }
 
 // Category handlers
@@ -384,7 +427,12 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 			Name      string  `json:"name" binding:"required"`
 			Price     float64 `json:"price" binding:"required,gt=0"`
 			Quantity  int32   `json:"quantity" binding:"required,gt=0"`
+			FrameSize string  `json:"frame_size" binding:"required"`
+			WheelSize string  `json:"wheel_size" binding:"required"`
+			Color     string  `json:"color" binding:"required"`
+			BikeType  string  `json:"bike_type" binding:"required"`
 		} `json:"items" binding:"required,dive"`
+		PickupDate string `json:"pickup_date" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -399,6 +447,10 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 			Name:      item.Name,
 			Price:     item.Price,
 			Quantity:  item.Quantity,
+			FrameSize: item.FrameSize,
+			WheelSize: item.WheelSize,
+			Color:     item.Color,
+			BikeType:  item.BikeType,
 		})
 	}
 
@@ -419,15 +471,16 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 
 	if !stockCheck.Available {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error":             "Some items are out of stock",
+			"error":             "Some bicycles are out of stock",
 			"unavailable_items": stockCheck.UnavailableItems,
 		})
 		return
 	}
 
 	order, err := h.grpcClients.CreateOrder(c.Request.Context(), &orderpb.CreateOrderRequest{
-		UserId: userID.(string),
-		Items:  orderItems,
+		UserId:     userID.(string),
+		Items:      orderItems,
+		PickupDate: req.PickupDate,
 	})
 
 	if err != nil {
@@ -443,16 +496,21 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 	} else {
 		// Prepare order details for email
 		orderDetails := map[string]interface{}{
-			"Items": make([]map[string]interface{}, 0, len(order.Items)),
-			"Total": order.Total,
+			"Items":      make([]map[string]interface{}, 0, len(order.Items)),
+			"Total":      order.Total,
+			"PickupDate": req.PickupDate,
 		}
 
 		for _, item := range order.Items {
 			orderDetails["Items"] = append(orderDetails["Items"].([]map[string]interface{}), map[string]interface{}{
-				"Name":     item.Name,
-				"Price":    item.Price,
-				"Quantity": item.Quantity,
-				"Subtotal": item.Price * float64(item.Quantity),
+				"Name":      item.Name,
+				"Price":     item.Price,
+				"Quantity":  item.Quantity,
+				"Subtotal":  item.Price * float64(item.Quantity),
+				"FrameSize": item.FrameSize,
+				"WheelSize": item.WheelSize,
+				"Color":     item.Color,
+				"BikeType":  item.BikeType,
 			})
 		}
 

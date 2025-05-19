@@ -31,6 +31,10 @@ type OrderItem struct {
 	Name      string  `json:"name"`
 	Price     float64 `json:"price"`
 	Quantity  int     `json:"quantity"`
+	FrameSize string  `json:"frame_size"`
+	WheelSize string  `json:"wheel_size"`
+	Color     string  `json:"color"`
+	BikeType  string  `json:"bike_type"`
 }
 
 type OrderFilter struct {

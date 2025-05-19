@@ -49,12 +49,10 @@ func LoadConfig() *Config {
 	config := &Config{}
 
 	config.Server.Port = getEnv("GATEWAY_PORT", "8000")
-
 	config.Services.User.GrpcURL = getEnv("USER_GRPC_URL", "localhost:50053")
 	config.Services.Inventory.GrpcURL = getEnv("INVENTORY_GRPC_URL", "localhost:50051")
 	config.Services.Order.GrpcURL = getEnv("ORDER_GRPC_URL", "localhost:50052")
-
-	config.Auth.Secret = getEnv("AUTH_SECRET", "your-default-secret-key-change-in-production")
+	config.Auth.Secret = getEnv("AUTH_SECRET", "bicycle-store-secret-key-change-in-production")
 	expiryStr := getEnv("AUTH_EXPIRY_MINUTES", "60")
 	expiryMinutes, err := strconv.Atoi(expiryStr)
 	if err != nil {
@@ -73,7 +71,7 @@ func LoadConfig() *Config {
 	config.Redis.DB = redisDB
 
 	// Email configuration
-	config.Email.From = getEnv("EMAIL_FROM", "")
+	config.Email.From = getEnv("EMAIL_FROM", "bike-store@example.com")
 	config.Email.Password = getEnv("EMAIL_PASSWORD", "")
 	config.Email.Host = getEnv("EMAIL_HOST", "smtp.gmail.com")
 	config.Email.Port = getEnv("EMAIL_PORT", "587")

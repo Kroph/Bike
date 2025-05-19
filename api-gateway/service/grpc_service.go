@@ -85,11 +85,28 @@ func (c *GrpcClients) GetUserProfile(ctx context.Context, userID string) (*userp
 }
 
 // Inventory Service - Product methods
+
 func (c *GrpcClients) CreateProduct(ctx context.Context, req *inventorypb.CreateProductRequest) (*inventorypb.ProductResponse, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	return c.inventoryClient.product.CreateProduct(ctx, req)
+}
+
+func (c *GrpcClients) UpdateProduct(ctx context.Context, req *inventorypb.UpdateProductRequest) (*inventorypb.ProductResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	return c.inventoryClient.product.UpdateProduct(ctx, req)
+}
+
+func (c *GrpcClients) ListProducts(ctx context.Context, filter *inventorypb.ProductFilter) (*inventorypb.ListProductsResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	return c.inventoryClient.product.ListProducts(ctx, &inventorypb.ListProductsRequest{
+		Filter: filter,
+	})
 }
 
 func (c *GrpcClients) GetProduct(ctx context.Context, productID string) (*inventorypb.ProductResponse, error) {
@@ -101,28 +118,12 @@ func (c *GrpcClients) GetProduct(ctx context.Context, productID string) (*invent
 	})
 }
 
-func (c *GrpcClients) UpdateProduct(ctx context.Context, req *inventorypb.UpdateProductRequest) (*inventorypb.ProductResponse, error) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	return c.inventoryClient.product.UpdateProduct(ctx, req)
-}
-
 func (c *GrpcClients) DeleteProduct(ctx context.Context, productID string) (*inventorypb.DeleteResponse, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	return c.inventoryClient.product.DeleteProduct(ctx, &inventorypb.ProductIDRequest{
 		Id: productID,
-	})
-}
-
-func (c *GrpcClients) ListProducts(ctx context.Context, filter *inventorypb.ProductFilter) (*inventorypb.ListProductsResponse, error) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	return c.inventoryClient.product.ListProducts(ctx, &inventorypb.ListProductsRequest{
-		Filter: filter,
 	})
 }
 
