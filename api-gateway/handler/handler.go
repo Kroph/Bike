@@ -175,7 +175,7 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 		Description: req.Description,
 		Price:       req.Price,
 		Stock:       req.Stock,
-		CategoryID:  req.CategoryID,
+		CategoryId:  req.CategoryID,
 		FrameSize:   req.FrameSize,
 		WheelSize:   req.WheelSize,
 		Color:       req.Color,
@@ -218,7 +218,7 @@ func (h *Handler) UpdateProduct(c *gin.Context) {
 		Description: req.Description,
 		Price:       req.Price,
 		Stock:       req.Stock,
-		CategoryID:  req.CategoryID,
+		CategoryId:  req.CategoryID,
 		FrameSize:   req.FrameSize,
 		WheelSize:   req.WheelSize,
 		Color:       req.Color,
@@ -432,7 +432,7 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 			Color     string  `json:"color" binding:"required"`
 			BikeType  string  `json:"bike_type" binding:"required"`
 		} `json:"items" binding:"required,dive"`
-		PickupDate string `json:"pickup_date" binding:"required"`
+		// Remove PickupDate field
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -478,9 +478,9 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 	}
 
 	order, err := h.grpcClients.CreateOrder(c.Request.Context(), &orderpb.CreateOrderRequest{
-		UserId:     userID.(string),
-		Items:      orderItems,
-		PickupDate: req.PickupDate,
+		UserId: userID.(string),
+		Items:  orderItems,
+		// Remove PickupDate field
 	})
 
 	if err != nil {
@@ -492,13 +492,11 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 	userProfile, err := h.grpcClients.GetUserProfile(c.Request.Context(), userID.(string))
 	if err != nil {
 		log.Printf("Failed to get user profile for email notification: %v", err)
-		// Continue with order creation even if we can't send email
 	} else {
 		// Prepare order details for email
 		orderDetails := map[string]interface{}{
-			"Items":      make([]map[string]interface{}, 0, len(order.Items)),
-			"Total":      order.Total,
-			"PickupDate": req.PickupDate,
+			"Items": make([]map[string]interface{}, 0, len(order.Items)),
+			"Total": order.Total,
 		}
 
 		for _, item := range order.Items {

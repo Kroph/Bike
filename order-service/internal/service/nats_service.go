@@ -38,13 +38,12 @@ func (s *natsService) Close() {
 }
 
 type OrderCreatedEvent struct {
-	OrderID    string           `json:"order_id"`
-	UserID     string           `json:"user_id"`
-	Total      float64          `json:"total"`
-	Status     string           `json:"status"`
-	Items      []OrderItemEvent `json:"items"`
-	PickupDate string           `json:"pickup_date"` // Added for bike store
-	CreatedAt  time.Time        `json:"created_at"`
+	OrderID   string           `json:"order_id"`
+	UserID    string           `json:"user_id"`
+	Total     float64          `json:"total"`
+	Status    string           `json:"status"`
+	Items     []OrderItemEvent `json:"items"`
+	CreatedAt time.Time        `json:"created_at"`
 }
 
 type OrderItemEvent struct {
@@ -58,13 +57,12 @@ type OrderItemEvent struct {
 
 func (s *natsService) PublishOrderCreated(order domain.Order) error {
 	msg := OrderCreatedEvent{
-		OrderID:    order.ID,
-		UserID:     order.UserID,
-		Total:      order.Total,
-		Status:     string(order.Status),
-		PickupDate: order.PickupDate,
-		Items:      make([]OrderItemEvent, len(order.Items)),
-		CreatedAt:  order.CreatedAt,
+		OrderID:   order.ID,
+		UserID:    order.UserID,
+		Total:     order.Total,
+		Status:    string(order.Status),
+		Items:     make([]OrderItemEvent, len(order.Items)),
+		CreatedAt: order.CreatedAt,
 	}
 
 	for i, item := range order.Items {

@@ -25,7 +25,6 @@ enum OrderStatus {
 message CreateOrderRequest {
   string user_id = 1;
   repeated OrderItemRequest items = 2;
-  string pickup_date = 3;
 }
 
 message OrderItemRequest {
@@ -45,7 +44,6 @@ message OrderResponse {
   OrderStatus status = 3;
   double total = 4;
   repeated OrderItemResponse items = 5;
-  string pickup_date = 6;
   google.protobuf.Timestamp created_at = 7;
   google.protobuf.Timestamp updated_at = 8;
 }

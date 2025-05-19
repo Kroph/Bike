@@ -49,8 +49,8 @@ func (s *natsService) StartConsuming(ctx context.Context) error {
 			return
 		}
 
-		log.Printf("[NATS-CONSUMER] Processing bicycle order %s created at %s, scheduled for pickup on %s",
-			orderEvent.OrderID, orderEvent.CreatedAt.Format(time.RFC3339), orderEvent.PickupDate)
+		log.Printf("[NATS-CONSUMER] Processing bicycle order %s created at %s",
+			orderEvent.OrderID, orderEvent.CreatedAt.Format(time.RFC3339))
 
 		if err := s.handler.HandleOrderCreated(ctx, orderEvent); err != nil {
 			log.Printf("[NATS-CONSUMER] Failed to handle bicycle order created event: %v", err)

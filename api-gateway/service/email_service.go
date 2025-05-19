@@ -76,9 +76,6 @@ func (s *emailService) SendOrderConfirmation(to string, orderID string, orderDet
         <table>
             <tr>
                 <th>Bicycle</th>
-                <th>// api-gateway/service/email_service.go - Continue email template
-
-                <th>Bicycle</th>
                 <th>Quantity</th>
                 <th>Price</th>
                 <th>Subtotal</th>
@@ -97,11 +94,7 @@ func (s *emailService) SendOrderConfirmation(to string, orderID string, orderDet
             </tr>
         </table>
         
-        <p>We'll send you another email when your bicycle is ready for pickup at our store.</p>
-        
-        <p><strong>Pickup Information:</strong><br>
-        Our store is open Monday to Saturday from 9:00 AM to 7:00 PM.<br>
-        Please bring a valid ID when picking up your bicycle.</p>
+        <p>We'll send you another email when your bicycle is ready for delivery.</p>
         
         <p>Thank you for shopping with Bicycle Store!</p>
         
