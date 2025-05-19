@@ -86,14 +86,17 @@ func (r *PostgresProductRepository) Create(ctx context.Context, product domain.P
 
 func (r *PostgresProductRepository) GetByID(ctx context.Context, id string) (domain.Product, error) {
 	query := `
-		SELECT id, name, description, price, stock, category_id, 
-		       frame_size, wheel_size, color, weight, bike_type, 
-		       created_at, updated_at
-		FROM products
-		WHERE id = $1
-	`
+        SELECT id, name, description, price, stock, category_id, 
+               frame_size, wheel_size, color, weight, bike_type, 
+               created_at, updated_at
+        FROM products
+        WHERE id = $1
+    `
 
 	var product domain.Product
+	var frameSize, wheelSize, color, bikeType sql.NullString
+	var weight sql.NullFloat64
+
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&product.ID,
 		&product.Name,
@@ -101,11 +104,11 @@ func (r *PostgresProductRepository) GetByID(ctx context.Context, id string) (dom
 		&product.Price,
 		&product.Stock,
 		&product.CategoryID,
-		&product.FrameSize,
-		&product.WheelSize,
-		&product.Color,
-		&product.Weight,
-		&product.BikeType,
+		&frameSize,
+		&wheelSize,
+		&color,
+		&weight,
+		&bikeType,
 		&product.CreatedAt,
 		&product.UpdatedAt,
 	)
@@ -117,7 +120,27 @@ func (r *PostgresProductRepository) GetByID(ctx context.Context, id string) (dom
 		return domain.Product{}, err
 	}
 
+	// Handle NULL values for strings
+	product.FrameSize = getStringValue(frameSize)
+	product.WheelSize = getStringValue(wheelSize)
+	product.Color = getStringValue(color)
+	product.BikeType = getStringValue(bikeType)
+
+	// Handle NULL values for floats
+	if weight.Valid {
+		product.Weight = weight.Float64
+	} else {
+		product.Weight = 0.0
+	}
+
 	return product, nil
+}
+
+func getStringValue(ns sql.NullString) string {
+	if ns.Valid {
+		return ns.String
+	}
+	return ""
 }
 
 func (r *PostgresProductRepository) Update(ctx context.Context, product domain.Product) error {
@@ -153,18 +176,18 @@ func (r *PostgresProductRepository) Update(ctx context.Context, product domain.P
 
 func (r *PostgresProductRepository) List(ctx context.Context, filter domain.ProductFilter) ([]domain.Product, int, error) {
 	baseQuery := `
-		SELECT id, name, description, price, stock, category_id, 
-		       frame_size, wheel_size, color, weight, bike_type, 
-		       created_at, updated_at
-		FROM products
-		WHERE 1=1
-	`
+        SELECT id, name, description, price, stock, category_id, 
+               frame_size, wheel_size, color, weight, bike_type, 
+               created_at, updated_at
+        FROM products
+        WHERE 1=1
+    `
 
 	countQuery := `
-		SELECT COUNT(*)
-		FROM products
-		WHERE 1=1
-	`
+        SELECT COUNT(*)
+        FROM products
+        WHERE 1=1
+    `
 
 	var conditions string
 	var args []interface{}
@@ -223,6 +246,7 @@ func (r *PostgresProductRepository) List(ctx context.Context, filter domain.Prod
 		argIndex++
 	}
 
+	// Pagination
 	limit := 10
 	offset := 0
 
@@ -237,15 +261,20 @@ func (r *PostgresProductRepository) List(ctx context.Context, filter domain.Prod
 	query := baseQuery + conditions + fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
 	args = append(args, limit, offset)
 
+	// Execute the query to get the products
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, 0, err
 	}
 	defer rows.Close()
 
+	// Process the result rows
 	var products []domain.Product
 	for rows.Next() {
 		var product domain.Product
+		var frameSize, wheelSize, color, bikeType sql.NullString
+		var weight sql.NullFloat64
+
 		err := rows.Scan(
 			&product.ID,
 			&product.Name,
@@ -253,20 +282,36 @@ func (r *PostgresProductRepository) List(ctx context.Context, filter domain.Prod
 			&product.Price,
 			&product.Stock,
 			&product.CategoryID,
-			&product.FrameSize,
-			&product.WheelSize,
-			&product.Color,
-			&product.Weight,
-			&product.BikeType,
+			&frameSize,
+			&wheelSize,
+			&color,
+			&weight,
+			&bikeType,
 			&product.CreatedAt,
 			&product.UpdatedAt,
 		)
+
 		if err != nil {
 			return nil, 0, err
 		}
+
+		// Handle NULL values for strings
+		product.FrameSize = getStringValue(frameSize)
+		product.WheelSize = getStringValue(wheelSize)
+		product.Color = getStringValue(color)
+		product.BikeType = getStringValue(bikeType)
+
+		// Handle NULL values for floats
+		if weight.Valid {
+			product.Weight = weight.Float64
+		} else {
+			product.Weight = 0.0
+		}
+
 		products = append(products, product)
 	}
 
+	// Get the total count for pagination
 	var total int
 	err = r.db.QueryRowContext(ctx, countQuery+conditions, args[:len(args)-2]...).Scan(&total)
 	if err != nil {

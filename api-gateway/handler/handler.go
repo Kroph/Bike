@@ -158,12 +158,11 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 		Price       float64 `json:"price" binding:"required,gt=0"`
 		Stock       int32   `json:"stock" binding:"required,gte=0"`
 		CategoryID  string  `json:"category_id" binding:"required"`
-		// Bicycle-specific fields - we don't send these to the inventory service yet
-		FrameSize string  `json:"frame_size"`
-		WheelSize string  `json:"wheel_size"`
-		Color     string  `json:"color"`
-		Weight    float64 `json:"weight"`
-		BikeType  string  `json:"bike_type"`
+		FrameSize   string  `json:"frame_size"`
+		WheelSize   string  `json:"wheel_size"`
+		Color       string  `json:"color"`
+		Weight      float64 `json:"weight"`
+		BikeType    string  `json:"bike_type"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -171,14 +170,12 @@ func (h *Handler) CreateProduct(c *gin.Context) {
 		return
 	}
 
-	// Create a product request with only the fields that are in the proto definition
 	product, err := h.grpcClients.CreateProduct(c.Request.Context(), &inventorypb.CreateProductRequest{
 		Name:        req.Name,
 		Description: req.Description,
 		Price:       req.Price,
 		Stock:       req.Stock,
 		CategoryId:  req.CategoryID,
-		// Note: Bicycle-specific fields are not included because they are not in the proto definition yet
 	})
 
 	if err != nil {
@@ -198,12 +195,11 @@ func (h *Handler) UpdateProduct(c *gin.Context) {
 		Price       float64 `json:"price"`
 		Stock       int32   `json:"stock"`
 		CategoryID  string  `json:"category_id"`
-		// Bicycle-specific fields - we don't send these to the inventory service yet
-		FrameSize string  `json:"frame_size"`
-		WheelSize string  `json:"wheel_size"`
-		Color     string  `json:"color"`
-		Weight    float64 `json:"weight"`
-		BikeType  string  `json:"bike_type"`
+		FrameSize   string  `json:"frame_size"`
+		WheelSize   string  `json:"wheel_size"`
+		Color       string  `json:"color"`
+		Weight      float64 `json:"weight"`
+		BikeType    string  `json:"bike_type"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -211,7 +207,6 @@ func (h *Handler) UpdateProduct(c *gin.Context) {
 		return
 	}
 
-	// Create an update request with only the fields that are in the proto definition
 	product, err := h.grpcClients.UpdateProduct(c.Request.Context(), &inventorypb.UpdateProductRequest{
 		Id:          id,
 		Name:        req.Name,
@@ -219,7 +214,6 @@ func (h *Handler) UpdateProduct(c *gin.Context) {
 		Price:       req.Price,
 		Stock:       req.Stock,
 		CategoryId:  req.CategoryID,
-		// Note: Bicycle-specific fields are not included because they are not in the proto definition yet
 	})
 
 	if err != nil {
@@ -252,9 +246,6 @@ func (h *Handler) ListProducts(c *gin.Context) {
 	if inStock := c.Query("in_stock"); inStock == "true" {
 		filter.InStock = true
 	}
-
-	// Bicycle specific filters - these are no longer available in the ProductFilter
-	// We need to update the proto files to include these fields
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
@@ -408,7 +399,6 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 			Color     string  `json:"color"`
 			BikeType  string  `json:"bike_type"`
 		} `json:"items" binding:"required,dive"`
-		// Remove PickupDate field
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -423,8 +413,6 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 			Name:      item.Name,
 			Price:     item.Price,
 			Quantity:  item.Quantity,
-			// Note: The OrderItemRequest in the proto definition may not include these fields
-			// We need to check if they exist before adding them
 		})
 	}
 
@@ -454,7 +442,6 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 	order, err := h.grpcClients.CreateOrder(c.Request.Context(), &orderpb.CreateOrderRequest{
 		UserId: userID.(string),
 		Items:  orderItems,
-		// Remove PickupDate field
 	})
 
 	if err != nil {
@@ -475,15 +462,14 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 
 		for _, item := range order.Items {
 			orderDetails["Items"] = append(orderDetails["Items"].([]map[string]interface{}), map[string]interface{}{
-				"Name":     item.Name,
-				"Price":    item.Price,
-				"Quantity": item.Quantity,
-				"Subtotal": item.Price * float64(item.Quantity),
-				// Include bicycle-specific fields in email even if they're not in the proto
-				"FrameSize": req.Items[0].FrameSize, // This should be mapped properly
-				"WheelSize": req.Items[0].WheelSize, // This should be mapped properly
-				"Color":     req.Items[0].Color,     // This should be mapped properly
-				"BikeType":  req.Items[0].BikeType,  // This should be mapped properly
+				"Name":      item.Name,
+				"Price":     item.Price,
+				"Quantity":  item.Quantity,
+				"Subtotal":  item.Price * float64(item.Quantity),
+				"FrameSize": req.Items[0].FrameSize,
+				"WheelSize": req.Items[0].WheelSize,
+				"Color":     req.Items[0].Color,
+				"BikeType":  req.Items[0].BikeType,
 			})
 		}
 
