@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package order;
+
+option go_package = "proto/order";
+
+import "google/protobuf/timestamp.proto";
+import "proto/order/order.proto";
+
+service PaymentService {
+  rpc CreatePayment(CreatePaymentRequest) returns (PaymentResponse);
+  rpc GetPayment(PaymentIDRequest) returns (PaymentResponse);
+  rpc UpdatePaymentStatus(UpdatePaymentStatusRequest) returns (PaymentResponse);
+  rpc GetOrderPayments(OrderIDRequest) returns (ListPaymentsResponse);
+}
+
+enum PaymentStatus {
+  PAYMENT_PENDING = 0;
+  PAYMENT_COMPLETED = 1;
+  PAYMENT_FAILED = 2;
+  PAYMENT_REFUNDED = 3;
+}
+
+message CreatePaymentRequest {
+  string order_id = 1;
+  double amount = 2;
+  string method = 3;
+}
+
+message PaymentIDRequest {
+  string id = 1;
+}
+
+message UpdatePaymentStatusRequest {
+  string id = 1;
+  PaymentStatus status = 2;
+}
+
+message PaymentResponse {
+  string id = 1;
+  string order_id = 2;
+  double amount = 3;
+  PaymentStatus status = 4;
+  string method = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message ListPaymentsResponse {
+  repeated PaymentResponse payments = 1;
+}

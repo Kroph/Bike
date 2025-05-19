@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+package order;
+
+option go_package = "proto/order";
+
+import "google/protobuf/timestamp.proto";
+
+service OrderService {
+  rpc CreateOrder(CreateOrderRequest) returns (OrderResponse);
+  rpc GetOrder(OrderIDRequest) returns (OrderResponse);
+  rpc UpdateOrderStatus(UpdateOrderStatusRequest) returns (OrderResponse);
+  rpc ListOrders(ListOrdersRequest) returns (ListOrdersResponse);
+  rpc GetUserOrders(UserIDRequest) returns (ListOrdersResponse);
+}
+
+enum OrderStatus {
+  PENDING = 0;
+  PAID = 1;
+  SHIPPED = 2;
+  DELIVERED = 3;
+  CANCELLED = 4;
+}
+
+message CreateOrderRequest {
+  string user_id = 1;
+  repeated OrderItemRequest items = 2;
+}
+
+message OrderItemRequest {
+  string product_id = 1;
+  string name = 2;
+  double price = 3;
+  int32 quantity = 4;
+}
+
+message OrderIDRequest {
+  string id = 1;
+}
+
+message UserIDRequest {
+  string user_id = 1;
+}
+
+message UpdateOrderStatusRequest {
+  string id = 1;
+  OrderStatus status = 2;
+}
+
+message OrderResponse {
+  string id = 1;
+  string user_id = 2;
+  OrderStatus status = 3;
+  double total = 4;
+  repeated OrderItemResponse items = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message OrderItemResponse {
+  string id = 1;
+  string order_id = 2;
+  string product_id = 3;
+  string name = 4;
+  double price = 5;
+  int32 quantity = 6;
+}
+
+message OrderFilter {
+  string user_id = 1;
+  OrderStatus status = 2;
+  google.protobuf.Timestamp from_date = 3;
+  google.protobuf.Timestamp to_date = 4;
+  int32 page = 5;
+  int32 page_size = 6;
+}
+
+message ListOrdersRequest {
+  OrderFilter filter = 1;
+}
+
+message ListOrdersResponse {
+  repeated OrderResponse orders = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
