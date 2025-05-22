@@ -53,9 +53,10 @@ func (h *Handler) RegisterUser(c *gin.Context) {
 		return
 	}
 
-	token, err := h.authService.GenerateToken(user.Id)
+	// Authenticate user to get a proper token from User Service
+	authResponse, err := h.grpcClients.AuthenticateUser(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Registration successful but failed to generate token"})
 		return
 	}
 
@@ -93,7 +94,7 @@ func (h *Handler) RegisterUser(c *gin.Context) {
 			"email":    user.Email,
 			"role":     roleStr,
 		},
-		"token": token,
+		"token": authResponse.Token,
 	})
 }
 

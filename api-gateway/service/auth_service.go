@@ -55,8 +55,26 @@ func (s *authService) GenerateToken(userID string) (string, error) {
 
 	claims := &Claims{
 		UserID:    userID,
-		Role:      UserRoleUser, // Default role, will be overridden by proper authentication
-		TokenType: "access",     // Default token type is "access"
+		Role:      UserRoleUser,
+		TokenType: "access",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(s.secretKey))
+}
+
+func (s *authService) GenerateTokenWithRole(userID string, role UserRole) (string, error) {
+	expirationTime := time.Now().Add(time.Duration(s.expiryMinutes) * time.Minute)
+
+	claims := &Claims{
+		UserID:    userID,
+		Role:      role,
+		TokenType: "access",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
