@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	inventorypb "proto/inventory"
@@ -216,4 +217,37 @@ func (c *GrpcClients) GetUserOrders(ctx context.Context, userID string) (*orderp
 	return c.orderClient.order.GetUserOrders(ctx, &orderpb.UserIDRequest{
 		UserId: userID,
 	})
+}
+
+func (c *GrpcClients) GenerateVerificationCode(ctx context.Context, userID string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	response, err := c.userClient.GenerateVerificationCode(ctx, &userpb.GenerateCodeRequest{
+		UserId: userID,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	if !response.Success {
+		return "", fmt.Errorf("failed to generate verification code: %s", response.Message)
+	}
+
+	return response.Code, nil
+}
+
+func (c *GrpcClients) VerifyEmailCode(ctx context.Context, userID, code string) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	response, err := c.userClient.VerifyEmail(ctx, &userpb.VerifyEmailRequest{
+		UserId: userID,
+		Code:   code,
+	})
+	if err != nil {
+		return false, err
+	}
+
+	return response.Success, nil
 }

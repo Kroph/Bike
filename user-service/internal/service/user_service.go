@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"log"
+	"math/big"
 	"time"
 
 	"user-service/internal/cache"
@@ -20,6 +22,9 @@ type UserService interface {
 	AuthenticateUser(ctx context.Context, email, password string) (string, domain.User, error)
 	GetUserProfile(ctx context.Context, id string) (domain.User, error)
 	UpdateUser(ctx context.Context, user domain.User) error
+	GenerateVerificationCode(ctx context.Context, userID string) (string, error)
+	VerifyEmailCode(ctx context.Context, userID, code string) error
+	IsEmailVerified(ctx context.Context, userID string) (bool, error)
 }
 
 type userService struct {
@@ -30,7 +35,8 @@ type userService struct {
 }
 
 type Claims struct {
-	UserID string `json:"user_id"`
+	UserID    string `json:"user_id"`
+	TokenType string `json:"token_type,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -131,4 +137,83 @@ func (s *userService) UpdateUser(ctx context.Context, user domain.User) error {
 	}
 
 	return nil
+}
+
+func (s *userService) GenerateVerificationCode(ctx context.Context, userID string) (string, error) {
+	// Generate 6-digit code
+	code, err := s.generateSixDigitCode()
+	if err != nil {
+		return "", fmt.Errorf("failed to generate verification code: %v", err)
+	}
+
+	// Store code in cache with 10-minute expiry
+	cacheKey := fmt.Sprintf("verification_code:%s", userID)
+	err = s.cache.Set(ctx, cacheKey, code, 10*time.Minute)
+	if err != nil {
+		return "", fmt.Errorf("failed to store verification code: %v", err)
+	}
+
+	log.Printf("Generated verification code for user %s: %s", userID, code)
+	return code, nil
+}
+
+func (s *userService) VerifyEmailCode(ctx context.Context, userID, code string) error {
+	// Get stored code from cache
+	cacheKey := fmt.Sprintf("verification_code:%s", userID)
+	var storedCode string
+
+	err := s.cache.Get(ctx, cacheKey, &storedCode)
+	if err != nil {
+		if err == cache.ErrCacheMiss {
+			return errors.New("verification code expired or not found")
+		}
+		return fmt.Errorf("failed to retrieve verification code: %v", err)
+	}
+
+	// Compare codes
+	if storedCode != code {
+		return errors.New("invalid verification code")
+	}
+
+	// Mark email as verified
+	verificationKey := fmt.Sprintf("email_verified:%s", userID)
+	err = s.cache.Set(ctx, verificationKey, "true", 0) // No expiration
+	if err != nil {
+		return fmt.Errorf("failed to mark email as verified: %v", err)
+	}
+
+	// Delete the verification code
+	s.cache.Delete(ctx, cacheKey)
+
+	log.Printf("Email verified successfully for user: %s", userID)
+	return nil
+}
+
+// Check if email is verified
+func (s *userService) IsEmailVerified(ctx context.Context, userID string) (bool, error) {
+	verificationKey := fmt.Sprintf("email_verified:%s", userID)
+	var verified string
+
+	err := s.cache.Get(ctx, verificationKey, &verified)
+	if err != nil {
+		if err == cache.ErrCacheMiss {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return verified == "true", nil
+}
+
+func (s *userService) generateSixDigitCode() (string, error) {
+	min := big.NewInt(100000)
+	max := big.NewInt(999999)
+
+	n, err := rand.Int(rand.Reader, new(big.Int).Sub(max, min))
+	if err != nil {
+		return "", err
+	}
+
+	code := new(big.Int).Add(min, n)
+	return code.String(), nil
 }

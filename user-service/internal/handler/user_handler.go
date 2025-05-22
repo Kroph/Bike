@@ -81,3 +81,37 @@ func (h *UserGrpcHandler) GetUserProfile(ctx context.Context, req *pb.UserIDRequ
 		UpdatedAt: timestamppb.New(user.UpdatedAt),
 	}, nil
 }
+
+func (h *UserGrpcHandler) GenerateVerificationCode(ctx context.Context, req *pb.GenerateCodeRequest) (*pb.GenerateCodeResponse, error) {
+	log.Printf("Received GenerateVerificationCode request for user ID: %s", req.UserId)
+
+	code, err := h.userService.GenerateVerificationCode(ctx, req.UserId)
+	if err != nil {
+		log.Printf("Failed to generate verification code: %v", err)
+		return nil, status.Errorf(codes.Internal, "failed to generate verification code: %v", err)
+	}
+
+	return &pb.GenerateCodeResponse{
+		Success: true,
+		Code:    code,
+		Message: "Verification code generated successfully",
+	}, nil
+}
+
+func (h *UserGrpcHandler) VerifyEmail(ctx context.Context, req *pb.VerifyEmailRequest) (*pb.VerifyEmailResponse, error) {
+	log.Printf("Received VerifyEmail request for user ID: %s with code: %s", req.UserId, req.Code)
+
+	err := h.userService.VerifyEmailCode(ctx, req.UserId, req.Code)
+	if err != nil {
+		log.Printf("Failed to verify email: %v", err)
+		return &pb.VerifyEmailResponse{
+			Success: false,
+			Message: err.Error(),
+		}, nil
+	}
+
+	return &pb.VerifyEmailResponse{
+		Success: true,
+		Message: "Email verified successfully",
+	}, nil
+}

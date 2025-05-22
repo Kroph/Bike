@@ -57,27 +57,98 @@ func (h *Handler) RegisterUser(c *gin.Context) {
 		return
 	}
 
-	// Generate a verification token (this could be a separate method in authService)
-	verificationToken, err := h.authService.GenerateVerificationToken(user.Id)
+	// Generate verification code via user service
+	code, err := h.grpcClients.GenerateVerificationCode(c.Request.Context(), user.Id)
 	if err != nil {
-		// Log the error but continue - email verification is not critical for registration
-		log.Printf("Failed to generate verification token: %v", err)
+		log.Printf("Failed to generate verification code: %v", err)
+		// Continue without verification email
 	} else {
-		// Send verification email
-		err = h.emailService.SendEmailVerification(req.Email, req.Username, verificationToken)
+		// Send verification email with code
+		err = h.emailService.SendEmailVerificationCode(req.Email, req.Username, code)
 		if err != nil {
 			log.Printf("Failed to send verification email: %v", err)
+		} else {
+			log.Printf("Verification email sent successfully to %s with code: %s", req.Email, code)
 		}
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"message": "User registered successfully. Please check your email to verify your account.",
+		"message": "User registered successfully. Please check your email for a 6-digit verification code.",
 		"user": gin.H{
 			"id":       user.Id,
 			"username": user.Username,
 			"email":    user.Email,
 		},
 		"token": token,
+	})
+}
+
+func (h *Handler) VerifyEmailCode(c *gin.Context) {
+	var req struct {
+		Code string `json:"code" binding:"required,len=6"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Get user ID from JWT token
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	// Verify code via user service
+	success, err := h.grpcClients.VerifyEmailCode(c.Request.Context(), userID.(string), req.Code)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !success {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid or expired verification code"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Email verified successfully",
+	})
+}
+
+func (h *Handler) ResendVerificationCode(c *gin.Context) {
+	// Get user ID from JWT token
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	// Get user profile to get email
+	userProfile, err := h.grpcClients.GetUserProfile(c.Request.Context(), userID.(string))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user profile"})
+		return
+	}
+
+	// Generate new verification code
+	code, err := h.grpcClients.GenerateVerificationCode(c.Request.Context(), userID.(string))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate verification code"})
+		return
+	}
+
+	// Send verification email with new code
+	err = h.emailService.SendEmailVerificationCode(userProfile.Email, userProfile.Username, code)
+	if err != nil {
+		log.Printf("Failed to send verification email: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send verification email"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Verification code sent successfully",
 	})
 }
 
@@ -585,13 +656,13 @@ func (h *Handler) ListUserOrders(c *gin.Context) {
 }
 
 // Register all routes
+
 func RegisterRoutes(router *gin.Engine, h *Handler) {
 	// Public routes
 	auth := router.Group("/api/v1/auth")
 	{
 		auth.POST("/register", h.RegisterUser)
 		auth.POST("/login", h.Login)
-		auth.GET("/verify-email", h.VerifyEmail)
 	}
 
 	// Protected routes
@@ -600,6 +671,8 @@ func RegisterRoutes(router *gin.Engine, h *Handler) {
 	{
 		// User routes
 		api.GET("/users/profile", h.GetUserProfile)
+		api.POST("/users/verify-email", h.VerifyEmailCode)
+		api.POST("/users/resend-verification", h.ResendVerificationCode)
 
 		// Product routes
 		products := api.Group("/products")
@@ -630,6 +703,8 @@ func RegisterRoutes(router *gin.Engine, h *Handler) {
 			orders.PATCH("/:id/status", h.UpdateOrderStatus)
 		}
 	}
+
+	router.POST("/api/v1/test-email-code", h.TestEmailCode)
 }
 
 func (h *Handler) VerifyEmail(c *gin.Context) {
@@ -665,5 +740,41 @@ func (h *Handler) VerifyEmail(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Email has been successfully verified",
+	})
+}
+
+// Add this test endpoint to api-gateway/handler/handler.go for testing
+
+func (h *Handler) TestEmailCode(c *gin.Context) {
+	var req struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	log.Printf("[TEST-EMAIL-CODE] Starting email code test to: %s", req.Email)
+
+	// Generate a test 6-digit code
+	testCode := "123456"
+
+	// Test email sending with code
+	err := h.emailService.SendEmailVerificationCode(req.Email, "Test User", testCode)
+	if err != nil {
+		log.Printf("[TEST-EMAIL-CODE] Failed to send test email: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to send email",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	log.Printf("[TEST-EMAIL-CODE] Test email with code sent successfully")
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Test email with verification code sent successfully",
+		"email":   req.Email,
+		"code":    testCode,
 	})
 }

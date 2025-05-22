@@ -10,6 +10,7 @@ service UserService {
   rpc RegisterUser(RegisterUserRequest) returns (UserResponse);
   rpc AuthenticateUser(AuthRequest) returns (AuthResponse);
   rpc GetUserProfile(UserIDRequest) returns (UserProfile);
+  rpc GenerateVerificationCode(GenerateCodeRequest) returns (GenerateCodeResponse);
   rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse);
 }
 
@@ -50,8 +51,19 @@ message UserProfile {
   google.protobuf.Timestamp updated_at = 5;
 }
 
+message GenerateCodeRequest {
+  string user_id = 1;
+}
+
+message GenerateCodeResponse {
+  bool success = 1;
+  string code = 2;
+  string message = 3;
+}
+
 message VerifyEmailRequest {
   string user_id = 1;
+  string code = 2;
 }
 
 message VerifyEmailResponse {

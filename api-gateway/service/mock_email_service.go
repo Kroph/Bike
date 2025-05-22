@@ -20,3 +20,9 @@ func (s *MockEmailService) SendEmailVerification(to string, username string, ver
 		to, username, verificationToken)
 	return nil
 }
+
+func (s *MockEmailService) SendEmailVerificationCode(to string, username string, code string) error {
+	log.Printf("[MOCK EMAIL] Email verification code to %s (username: %s) with code: %s",
+		to, username, code)
+	return nil
+}
