@@ -789,41 +789,51 @@ func (h *Handler) AdminUpdateOrderStatus(c *gin.Context) {
 }
 
 func RegisterRoutes(router *gin.Engine, h *Handler) {
-	// Public routes
+	// Public routes (no authentication required)
 	auth := router.Group("/api/v1/auth")
 	{
 		auth.POST("/register", h.RegisterUser)
 		auth.POST("/login", h.Login)
 	}
 
-	// Protected routes - all require authentication
+	// Public product and category routes (read-only)
+	publicAPI := router.Group("/api/v1")
+	{
+		// Public product routes
+		publicAPI.GET("/products", h.ListProducts)
+		publicAPI.GET("/products/:id", h.GetProduct)
+
+		// Public category routes
+		publicAPI.GET("/categories", h.ListCategories)
+		publicAPI.GET("/categories/:id", h.GetCategory)
+	}
+
+	// Protected routes - require authentication
 	api := router.Group("/api/v1")
 	api.Use(service.AuthMiddleware(h.authService))
 	{
+		// User profile routes
 		api.GET("/users/profile", h.GetUserProfile)
 		api.POST("/users/verify-email", h.VerifyEmailCode)
 		api.POST("/users/resend-verification", h.ResendVerificationCode)
 
+		// Protected product routes (admin only)
 		products := api.Group("/products")
 		{
-			products.GET("", h.ListProducts)
-			products.GET("/:id", h.GetProduct)
-			// CHANGE THESE LINES - remove h.authService parameter:
 			products.POST("", middleware.RequireAdmin(), h.CreateProduct)
 			products.PUT("/:id", middleware.RequireAdmin(), h.UpdateProduct)
 			products.DELETE("/:id", middleware.RequireAdmin(), h.DeleteProduct)
 		}
 
+		// Protected category routes (admin only)
 		categories := api.Group("/categories")
 		{
-			categories.GET("", h.ListCategories)
-			categories.GET("/:id", h.GetCategory)
-			// CHANGE THESE LINES - remove h.authService parameter:
 			categories.POST("", middleware.RequireAdmin(), h.CreateCategory)
 			categories.PUT("/:id", middleware.RequireAdmin(), h.UpdateCategory)
 			categories.DELETE("/:id", middleware.RequireAdmin(), h.DeleteCategory)
 		}
 
+		// Order routes (user must be authenticated)
 		orders := api.Group("/orders")
 		{
 			orders.POST("", h.CreateOrder)
