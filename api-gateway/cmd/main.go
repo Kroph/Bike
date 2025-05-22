@@ -14,7 +14,6 @@ import (
 
 	"api-gateway/config"
 	"api-gateway/handler"
-	"api-gateway/middleware"
 	"api-gateway/service"
 )
 
@@ -68,10 +67,8 @@ func main() {
 
 	// Set up router with middleware
 	router := gin.New()
+	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
-	router.Use(middleware.Logger())
-	router.Use(middleware.RequestID())
-	router.Use(middleware.Telemetry())
 
 	// Register routes
 	handler.RegisterRoutes(router, h)

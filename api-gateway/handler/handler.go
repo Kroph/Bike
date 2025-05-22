@@ -788,93 +788,6 @@ func (h *Handler) AdminUpdateOrderStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, updatedOrder)
 }
 
-// Helper functions
-
-func (h *Handler) VerifyEmail(c *gin.Context) {
-	token := c.Query("token")
-	if token == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Verification token is required"})
-		return
-	}
-
-	// Validate the token
-	claims, err := h.authService.ValidateToken(token)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid or expired verification token"})
-		return
-	}
-
-	// Check if it's a verification token
-	if claims.TokenType != "verification" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid token type"})
-		return
-	}
-
-	// Store verification status in Redis
-	ctx := c.Request.Context()
-	verificationKey := fmt.Sprintf("email_verified:%s", claims.UserID)
-
-	// Store with no expiration
-	err = h.redisClient.Set(ctx, verificationKey, "true", 0).Err()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify email"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Email has been successfully verified",
-	})
-}
-
-func (h *Handler) TestEmailCode(c *gin.Context) {
-	var req struct {
-		Email string `json:"email" binding:"required,email"`
-	}
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	log.Printf("[TEST-EMAIL-CODE] Starting email code test to: %s", req.Email)
-
-	// Generate a test 6-digit code
-	testCode := "123456"
-
-	// Test email sending with code
-	err := h.emailService.SendEmailVerificationCode(req.Email, "Test User", testCode)
-	if err != nil {
-		log.Printf("[TEST-EMAIL-CODE] Failed to send test email: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Failed to send email",
-			"details": err.Error(),
-		})
-		return
-	}
-
-	log.Printf("[TEST-EMAIL-CODE] Test email with code sent successfully")
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Test email with verification code sent successfully",
-		"email":   req.Email,
-		"code":    testCode,
-	})
-}
-
-// Helper function to check if user is admin
-func (h *Handler) isUserAdmin(c *gin.Context) bool {
-	userRole, exists := c.Get("user_role")
-	if !exists {
-		return false
-	}
-
-	role, ok := userRole.(service.UserRole)
-	if !ok {
-		return false
-	}
-
-	return role == service.UserRoleAdmin
-}
-
 func RegisterRoutes(router *gin.Engine, h *Handler) {
 	// Public routes
 	auth := router.Group("/api/v1/auth")
@@ -883,6 +796,7 @@ func RegisterRoutes(router *gin.Engine, h *Handler) {
 		auth.POST("/login", h.Login)
 	}
 
+	// Protected routes - all require authentication
 	api := router.Group("/api/v1")
 	api.Use(service.AuthMiddleware(h.authService))
 	{
@@ -894,20 +808,20 @@ func RegisterRoutes(router *gin.Engine, h *Handler) {
 		{
 			products.GET("", h.ListProducts)
 			products.GET("/:id", h.GetProduct)
-
-			products.POST("", middleware.RequireAdmin(h.authService), h.CreateProduct)
-			products.PUT("/:id", middleware.RequireAdmin(h.authService), h.UpdateProduct)
-			products.DELETE("/:id", middleware.RequireAdmin(h.authService), h.DeleteProduct)
+			// CHANGE THESE LINES - remove h.authService parameter:
+			products.POST("", middleware.RequireAdmin(), h.CreateProduct)
+			products.PUT("/:id", middleware.RequireAdmin(), h.UpdateProduct)
+			products.DELETE("/:id", middleware.RequireAdmin(), h.DeleteProduct)
 		}
 
 		categories := api.Group("/categories")
 		{
 			categories.GET("", h.ListCategories)
 			categories.GET("/:id", h.GetCategory)
-
-			categories.POST("", middleware.RequireAdmin(h.authService), h.CreateCategory)
-			categories.PUT("/:id", middleware.RequireAdmin(h.authService), h.UpdateCategory)
-			categories.DELETE("/:id", middleware.RequireAdmin(h.authService), h.DeleteCategory)
+			// CHANGE THESE LINES - remove h.authService parameter:
+			categories.POST("", middleware.RequireAdmin(), h.CreateCategory)
+			categories.PUT("/:id", middleware.RequireAdmin(), h.UpdateCategory)
+			categories.DELETE("/:id", middleware.RequireAdmin(), h.DeleteCategory)
 		}
 
 		orders := api.Group("/orders")
@@ -919,14 +833,13 @@ func RegisterRoutes(router *gin.Engine, h *Handler) {
 		}
 	}
 
+	// Admin routes
 	admin := router.Group("/api/v1/admin")
-	admin.Use(middleware.RequireAdmin(h.authService))
+	admin.Use(service.AuthMiddleware(h.authService))
+	admin.Use(middleware.RequireAdmin())
 	{
 		admin.GET("/orders", h.ListAllOrders)
 		admin.GET("/orders/:id", h.GetAnyOrder)
 		admin.PATCH("/orders/:id/status", h.AdminUpdateOrderStatus)
 	}
-
-	// Test routes
-	router.POST("/api/v1/test-email-code", h.TestEmailCode)
 }

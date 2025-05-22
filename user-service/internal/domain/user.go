@@ -21,14 +21,6 @@ type User struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-type UserFilter struct {
-	Email    string
-	Username string
-	Role     UserRole
-	Page     int
-	PageSize int
-}
-
 func (u *User) IsAdmin() bool {
 	return u.Role == UserRoleAdmin
 }

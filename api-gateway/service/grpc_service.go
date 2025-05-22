@@ -78,15 +78,6 @@ func (c *GrpcClients) AuthenticateUser(ctx context.Context, email, password stri
 	})
 }
 
-func (c *GrpcClients) GetUserWithRole(ctx context.Context, userID string) (*userpb.UserProfile, error) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	return c.userClient.GetUserProfile(ctx, &userpb.UserIDRequest{
-		UserId: userID,
-	})
-}
-
 func (c *GrpcClients) ListOrders(ctx context.Context, filter *orderpb.OrderFilter) (*orderpb.ListOrdersResponse, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()

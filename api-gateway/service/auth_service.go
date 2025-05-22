@@ -3,7 +3,6 @@ package service
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/golang-jwt/jwt/v4"
 )
@@ -16,9 +15,7 @@ const (
 )
 
 type AuthService interface {
-	GenerateToken(userID string) (string, error)
 	ValidateToken(tokenString string) (*Claims, error)
-	GenerateVerificationToken(userID string) (string, error)
 }
 
 type Claims struct {
@@ -39,51 +36,13 @@ func (c *Claims) IsUser() bool {
 }
 
 type authService struct {
-	secretKey     string
-	expiryMinutes int
+	secretKey string
 }
 
 func NewAuthService(secretKey string, expiryMinutes int) AuthService {
 	return &authService{
-		secretKey:     secretKey,
-		expiryMinutes: expiryMinutes,
+		secretKey: secretKey,
 	}
-}
-
-func (s *authService) GenerateToken(userID string) (string, error) {
-	expirationTime := time.Now().Add(time.Duration(s.expiryMinutes) * time.Minute)
-
-	claims := &Claims{
-		UserID:    userID,
-		Role:      UserRoleUser,
-		TokenType: "access",
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expirationTime),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(s.secretKey))
-}
-
-func (s *authService) GenerateTokenWithRole(userID string, role UserRole) (string, error) {
-	expirationTime := time.Now().Add(time.Duration(s.expiryMinutes) * time.Minute)
-
-	claims := &Claims{
-		UserID:    userID,
-		Role:      role,
-		TokenType: "access",
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expirationTime),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(s.secretKey))
 }
 
 func (s *authService) ValidateToken(tokenString string) (*Claims, error) {
@@ -105,22 +64,4 @@ func (s *authService) ValidateToken(tokenString string) (*Claims, error) {
 	}
 
 	return claims, nil
-}
-
-func (s *authService) GenerateVerificationToken(userID string) (string, error) {
-	expirationTime := time.Now().Add(24 * time.Hour)
-
-	claims := &Claims{
-		UserID:    userID,
-		Role:      UserRoleUser,
-		TokenType: "verification",
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expirationTime),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			NotBefore: jwt.NewNumericDate(time.Now()),
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(s.secretKey))
 }

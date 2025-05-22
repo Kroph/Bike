@@ -21,10 +21,8 @@ type UserService interface {
 	RegisterUser(ctx context.Context, user domain.User) (domain.User, error)
 	AuthenticateUser(ctx context.Context, email, password string) (string, domain.User, error)
 	GetUserProfile(ctx context.Context, id string) (domain.User, error)
-	UpdateUser(ctx context.Context, user domain.User) error
 	GenerateVerificationCode(ctx context.Context, userID string) (string, error)
 	VerifyEmailCode(ctx context.Context, userID, code string) error
-	IsEmailVerified(ctx context.Context, userID string) (bool, error)
 }
 
 type userService struct {
@@ -131,20 +129,6 @@ func (s *userService) GetUserProfile(ctx context.Context, id string) (domain.Use
 	return user, nil
 }
 
-func (s *userService) UpdateUser(ctx context.Context, user domain.User) error {
-	if err := s.userRepo.Update(ctx, user); err != nil {
-		return err
-	}
-
-	// Invalidate cache
-	cacheKey := fmt.Sprintf("user:profile:%s", user.ID)
-	if err := s.cache.Delete(ctx, cacheKey); err != nil {
-		log.Printf("Failed to invalidate cache for user profile ID %s: %v", user.ID, err)
-	}
-
-	return nil
-}
-
 func (s *userService) GenerateVerificationCode(ctx context.Context, userID string) (string, error) {
 	// Generate 6-digit code
 	code, err := s.generateSixDigitCode()
@@ -193,22 +177,6 @@ func (s *userService) VerifyEmailCode(ctx context.Context, userID, code string) 
 
 	log.Printf("Email verified successfully for user: %s", userID)
 	return nil
-}
-
-// Check if email is verified
-func (s *userService) IsEmailVerified(ctx context.Context, userID string) (bool, error) {
-	verificationKey := fmt.Sprintf("email_verified:%s", userID)
-	var verified string
-
-	err := s.cache.Get(ctx, verificationKey, &verified)
-	if err != nil {
-		if err == cache.ErrCacheMiss {
-			return false, nil
-		}
-		return false, err
-	}
-
-	return verified == "true", nil
 }
 
 func (s *userService) generateSixDigitCode() (string, error) {
