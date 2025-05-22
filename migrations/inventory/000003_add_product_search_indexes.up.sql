@@ -1,0 +1,2 @@
+CREATE INDEX IF NOT EXISTS idx_products_name ON products USING gin(to_tsvector('english', name));
+CREATE INDEX IF NOT EXISTS idx_products_description ON products USING gin(to_tsvector('english', description));
