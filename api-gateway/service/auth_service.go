@@ -8,6 +8,13 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
+type UserRole string
+
+const (
+	UserRoleUser  UserRole = "user"
+	UserRoleAdmin UserRole = "admin"
+)
+
 type AuthService interface {
 	GenerateToken(userID string) (string, error)
 	ValidateToken(tokenString string) (*Claims, error)
@@ -15,9 +22,20 @@ type AuthService interface {
 }
 
 type Claims struct {
-	UserID    string `json:"user_id"`
-	TokenType string `json:"token_type,omitempty"`
+	UserID    string   `json:"user_id"`
+	Role      UserRole `json:"role"`
+	TokenType string   `json:"token_type,omitempty"`
 	jwt.RegisteredClaims
+}
+
+// IsAdmin checks if user has admin role
+func (c *Claims) IsAdmin() bool {
+	return c.Role == UserRoleAdmin
+}
+
+// IsUser checks if user has user role
+func (c *Claims) IsUser() bool {
+	return c.Role == UserRoleUser
 }
 
 type authService struct {
@@ -37,7 +55,8 @@ func (s *authService) GenerateToken(userID string) (string, error) {
 
 	claims := &Claims{
 		UserID:    userID,
-		TokenType: "access", // Default token type is "access"
+		Role:      UserRoleUser, // Default role, will be overridden by proper authentication
+		TokenType: "access",     // Default token type is "access"
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -75,7 +94,8 @@ func (s *authService) GenerateVerificationToken(userID string) (string, error) {
 
 	claims := &Claims{
 		UserID:    userID,
-		TokenType: "verification", // Set token type to "verification"
+		Role:      UserRoleUser,
+		TokenType: "verification",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

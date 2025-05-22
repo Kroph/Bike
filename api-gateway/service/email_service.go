@@ -223,7 +223,7 @@ func (s *emailService) sendEmail(to, subject, htmlBody string) error {
 	log.Printf("[EMAIL-SERVICE] Connecting to SMTP server: %s:%s", s.host, s.port)
 
 	// Connect to SMTP server using plain TCP first (not TLS)
-	addr := fmt.Sprintf("%s:%s", s.host, s.port)
+	addr := net.JoinHostPort(s.host, s.port)
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		log.Printf("[EMAIL-SERVICE] Failed to connect to SMTP server: %v", err)
@@ -284,7 +284,7 @@ func (s *emailService) sendEmail(to, subject, htmlBody string) error {
 		return fmt.Errorf("failed to start data command: %v", err)
 	}
 
-	_, err = fmt.Fprintf(wc, message)
+	_, err = fmt.Fprint(wc, message)
 	if err != nil {
 		log.Printf("[EMAIL-SERVICE] Failed to write email data: %v", err)
 		return fmt.Errorf("failed to send email: %v", err)

@@ -55,6 +55,7 @@ func NewGrpcClients(userServiceURL, inventoryServiceURL, orderServiceURL string)
 }
 
 // User Service methods
+
 func (c *GrpcClients) RegisterUser(ctx context.Context, username, email, password string) (*userpb.UserResponse, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -63,6 +64,7 @@ func (c *GrpcClients) RegisterUser(ctx context.Context, username, email, passwor
 		Username: username,
 		Email:    email,
 		Password: password,
+		Role:     userpb.UserRole_USER,
 	})
 }
 
@@ -73,6 +75,24 @@ func (c *GrpcClients) AuthenticateUser(ctx context.Context, email, password stri
 	return c.userClient.AuthenticateUser(ctx, &userpb.AuthRequest{
 		Email:    email,
 		Password: password,
+	})
+}
+
+func (c *GrpcClients) GetUserWithRole(ctx context.Context, userID string) (*userpb.UserProfile, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	return c.userClient.GetUserProfile(ctx, &userpb.UserIDRequest{
+		UserId: userID,
+	})
+}
+
+func (c *GrpcClients) ListOrders(ctx context.Context, filter *orderpb.OrderFilter) (*orderpb.ListOrdersResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	return c.orderClient.order.ListOrders(ctx, &orderpb.ListOrdersRequest{
+		Filter: filter,
 	})
 }
 
@@ -199,15 +219,6 @@ func (c *GrpcClients) UpdateOrderStatus(ctx context.Context, req *orderpb.Update
 	defer cancel()
 
 	return c.orderClient.order.UpdateOrderStatus(ctx, req)
-}
-
-func (c *GrpcClients) ListOrders(ctx context.Context, filter *orderpb.OrderFilter) (*orderpb.ListOrdersResponse, error) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	return c.orderClient.order.ListOrders(ctx, &orderpb.ListOrdersRequest{
-		Filter: filter,
-	})
 }
 
 func (c *GrpcClients) GetUserOrders(ctx context.Context, userID string) (*orderpb.ListOrdersResponse, error) {

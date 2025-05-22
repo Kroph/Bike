@@ -27,10 +27,22 @@ func NewUserGrpcHandler(userService service.UserService) *UserGrpcHandler {
 func (h *UserGrpcHandler) RegisterUser(ctx context.Context, req *pb.RegisterUserRequest) (*pb.UserResponse, error) {
 	log.Printf("Received RegisterUser request for email: %s", req.Email)
 
+	// Map proto role to domain role
+	var role domain.UserRole
+	switch req.Role {
+	case pb.UserRole_ADMIN:
+		role = domain.UserRoleAdmin
+	case pb.UserRole_USER:
+		fallthrough
+	default:
+		role = domain.UserRoleUser
+	}
+
 	user := domain.User{
 		Username: req.Username,
 		Email:    req.Email,
 		Password: req.Password,
+		Role:     role,
 	}
 
 	createdUser, err := h.userService.RegisterUser(ctx, user)
@@ -39,10 +51,22 @@ func (h *UserGrpcHandler) RegisterUser(ctx context.Context, req *pb.RegisterUser
 		return nil, status.Errorf(codes.Internal, "failed to register user: %v", err)
 	}
 
+	// Map domain role to proto role
+	var protoRole pb.UserRole
+	switch createdUser.Role {
+	case domain.UserRoleAdmin:
+		protoRole = pb.UserRole_ADMIN
+	case domain.UserRoleUser:
+		fallthrough
+	default:
+		protoRole = pb.UserRole_USER
+	}
+
 	return &pb.UserResponse{
 		Id:        createdUser.ID,
 		Username:  createdUser.Username,
 		Email:     createdUser.Email,
+		Role:      protoRole,
 		CreatedAt: timestamppb.New(createdUser.CreatedAt),
 	}, nil
 }
@@ -56,11 +80,23 @@ func (h *UserGrpcHandler) AuthenticateUser(ctx context.Context, req *pb.AuthRequ
 		return nil, status.Errorf(codes.Unauthenticated, "authentication failed: %v", err)
 	}
 
+	// Map domain role to proto role
+	var protoRole pb.UserRole
+	switch user.Role {
+	case domain.UserRoleAdmin:
+		protoRole = pb.UserRole_ADMIN
+	case domain.UserRoleUser:
+		fallthrough
+	default:
+		protoRole = pb.UserRole_USER
+	}
+
 	return &pb.AuthResponse{
 		Token:    token,
 		UserId:   user.ID,
 		Username: user.Username,
 		Email:    user.Email,
+		Role:     protoRole,
 	}, nil
 }
 
@@ -73,10 +109,22 @@ func (h *UserGrpcHandler) GetUserProfile(ctx context.Context, req *pb.UserIDRequ
 		return nil, status.Errorf(codes.NotFound, "user not found: %v", err)
 	}
 
+	// Map domain role to proto role
+	var protoRole pb.UserRole
+	switch user.Role {
+	case domain.UserRoleAdmin:
+		protoRole = pb.UserRole_ADMIN
+	case domain.UserRoleUser:
+		fallthrough
+	default:
+		protoRole = pb.UserRole_USER
+	}
+
 	return &pb.UserProfile{
 		Id:        user.ID,
 		Username:  user.Username,
 		Email:     user.Email,
+		Role:      protoRole,
 		CreatedAt: timestamppb.New(user.CreatedAt),
 		UpdatedAt: timestamppb.New(user.UpdatedAt),
 	}, nil

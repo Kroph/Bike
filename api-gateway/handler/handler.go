@@ -9,9 +9,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 
+	"api-gateway/middleware"
 	"api-gateway/service"
 	inventorypb "proto/inventory"
 	orderpb "proto/order"
+	userpb "proto/user"
 )
 
 type Handler struct {
@@ -72,12 +74,24 @@ func (h *Handler) RegisterUser(c *gin.Context) {
 		}
 	}
 
+	// Map proto role to string for response
+	var roleStr string
+	switch user.Role {
+	case userpb.UserRole_ADMIN:
+		roleStr = "admin"
+	case userpb.UserRole_USER:
+		fallthrough
+	default:
+		roleStr = "user"
+	}
+
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "User registered successfully. Please check your email for a 6-digit verification code.",
 		"user": gin.H{
 			"id":       user.Id,
 			"username": user.Username,
 			"email":    user.Email,
+			"role":     roleStr,
 		},
 		"token": token,
 	})
@@ -169,12 +183,6 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	token, err := h.authService.GenerateToken(authResponse.UserId)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
-		return
-	}
-
 	// Check if email is verified
 	ctx := c.Request.Context()
 	verificationKey := fmt.Sprintf("email_verified:%s", authResponse.UserId)
@@ -185,15 +193,27 @@ func (h *Handler) Login(c *gin.Context) {
 		// Continue with login even if we can't check verification status
 	}
 
+	// Map proto role to string for response
+	var roleStr string
+	switch authResponse.Role {
+	case userpb.UserRole_ADMIN:
+		roleStr = "admin"
+	case userpb.UserRole_USER:
+		fallthrough
+	default:
+		roleStr = "user"
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Login successful",
 		"user": gin.H{
 			"id":             authResponse.UserId,
 			"username":       authResponse.Username,
 			"email":          authResponse.Email,
+			"role":           roleStr,
 			"email_verified": verified == "true",
 		},
-		"token": token,
+		"token": authResponse.Token,
 	})
 }
 
@@ -210,11 +230,23 @@ func (h *Handler) GetUserProfile(c *gin.Context) {
 		return
 	}
 
+	// Map proto role to string for response
+	var roleStr string
+	switch profile.Role {
+	case userpb.UserRole_ADMIN:
+		roleStr = "admin"
+	case userpb.UserRole_USER:
+		fallthrough
+	default:
+		roleStr = "user"
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"user": gin.H{
 			"id":         profile.Id,
 			"username":   profile.Username,
 			"email":      profile.Email,
+			"role":       roleStr,
 			"created_at": profile.CreatedAt,
 		},
 	})
@@ -570,8 +602,9 @@ func (h *Handler) GetOrder(c *gin.Context) {
 		return
 	}
 
-	// Ensure the order belongs to the authenticated user
-	if order.UserId != userID.(string) {
+	// Ensure the order belongs to the authenticated user (unless admin)
+	userRole, _ := c.Get("user_role")
+	if userRole != service.UserRoleAdmin && order.UserId != userID.(string) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
@@ -588,14 +621,15 @@ func (h *Handler) UpdateOrderStatus(c *gin.Context) {
 
 	id := c.Param("id")
 
-	// First, check if the order belongs to the user
+	// First, check if the order belongs to the user (unless admin)
 	order, err := h.grpcClients.GetOrder(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
 		return
 	}
 
-	if order.UserId != userID.(string) {
+	userRole, _ := c.Get("user_role")
+	if userRole != service.UserRoleAdmin && order.UserId != userID.(string) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
 		return
 	}
@@ -655,57 +689,105 @@ func (h *Handler) ListUserOrders(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// Register all routes
+// Admin-only handlers
 
-func RegisterRoutes(router *gin.Engine, h *Handler) {
-	// Public routes
-	auth := router.Group("/api/v1/auth")
-	{
-		auth.POST("/register", h.RegisterUser)
-		auth.POST("/login", h.Login)
+// ListAllOrders - Admin only: List
+func (h *Handler) ListAllOrders(c *gin.Context) {
+	// Parse query parameters for filtering
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
+	status := c.Query("status")
+	userID := c.Query("user_id")
+
+	var filter orderpb.OrderFilter
+	filter.Page = int32(page)
+	filter.PageSize = int32(pageSize)
+
+	if userID != "" {
+		filter.UserId = userID
 	}
 
-	// Protected routes
-	api := router.Group("/api/v1")
-	api.Use(service.AuthMiddleware(h.authService))
-	{
-		// User routes
-		api.GET("/users/profile", h.GetUserProfile)
-		api.POST("/users/verify-email", h.VerifyEmailCode)
-		api.POST("/users/resend-verification", h.ResendVerificationCode)
-
-		// Product routes
-		products := api.Group("/products")
-		{
-			products.POST("", h.CreateProduct)
-			products.GET("", h.ListProducts)
-			products.GET("/:id", h.GetProduct)
-			products.PUT("/:id", h.UpdateProduct)
-			products.DELETE("/:id", h.DeleteProduct)
-		}
-
-		// Category routes
-		categories := api.Group("/categories")
-		{
-			categories.POST("", h.CreateCategory)
-			categories.GET("", h.ListCategories)
-			categories.GET("/:id", h.GetCategory)
-			categories.PUT("/:id", h.UpdateCategory)
-			categories.DELETE("/:id", h.DeleteCategory)
-		}
-
-		// Order routes
-		orders := api.Group("/orders")
-		{
-			orders.POST("", h.CreateOrder)
-			orders.GET("", h.ListUserOrders)
-			orders.GET("/:id", h.GetOrder)
-			orders.PATCH("/:id/status", h.UpdateOrderStatus)
+	if status != "" {
+		switch status {
+		case "pending":
+			filter.Status = orderpb.OrderStatus_PENDING
+		case "paid":
+			filter.Status = orderpb.OrderStatus_PAID
+		case "shipped":
+			filter.Status = orderpb.OrderStatus_SHIPPED
+		case "delivered":
+			filter.Status = orderpb.OrderStatus_DELIVERED
+		case "cancelled":
+			filter.Status = orderpb.OrderStatus_CANCELLED
 		}
 	}
 
-	router.POST("/api/v1/test-email-code", h.TestEmailCode)
+	response, err := h.grpcClients.ListOrders(c.Request.Context(), &filter)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, response)
 }
+
+// GetAnyOrder - Admin only: Get any order by ID
+func (h *Handler) GetAnyOrder(c *gin.Context) {
+	id := c.Param("id")
+
+	order, err := h.grpcClients.GetOrder(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, order)
+}
+
+// AdminUpdateOrderStatus - Admin only: Update any order's status
+func (h *Handler) AdminUpdateOrderStatus(c *gin.Context) {
+	id := c.Param("id")
+
+	var req struct {
+		Status string `json:"status" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var status orderpb.OrderStatus
+	switch req.Status {
+	case "pending":
+		status = orderpb.OrderStatus_PENDING
+	case "paid":
+		status = orderpb.OrderStatus_PAID
+	case "shipped":
+		status = orderpb.OrderStatus_SHIPPED
+	case "delivered":
+		status = orderpb.OrderStatus_DELIVERED
+	case "cancelled":
+		status = orderpb.OrderStatus_CANCELLED
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status"})
+		return
+	}
+
+	updatedOrder, err := h.grpcClients.UpdateOrderStatus(c.Request.Context(), &orderpb.UpdateOrderStatusRequest{
+		Id:     id,
+		Status: status,
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, updatedOrder)
+}
+
+// Helper functions
 
 func (h *Handler) VerifyEmail(c *gin.Context) {
 	token := c.Query("token")
@@ -743,8 +825,6 @@ func (h *Handler) VerifyEmail(c *gin.Context) {
 	})
 }
 
-// Add this test endpoint to api-gateway/handler/handler.go for testing
-
 func (h *Handler) TestEmailCode(c *gin.Context) {
 	var req struct {
 		Email string `json:"email" binding:"required,email"`
@@ -777,4 +857,75 @@ func (h *Handler) TestEmailCode(c *gin.Context) {
 		"email":   req.Email,
 		"code":    testCode,
 	})
+}
+
+// Helper function to check if user is admin
+func (h *Handler) isUserAdmin(c *gin.Context) bool {
+	userRole, exists := c.Get("user_role")
+	if !exists {
+		return false
+	}
+
+	role, ok := userRole.(service.UserRole)
+	if !ok {
+		return false
+	}
+
+	return role == service.UserRoleAdmin
+}
+
+func RegisterRoutes(router *gin.Engine, h *Handler) {
+	// Public routes
+	auth := router.Group("/api/v1/auth")
+	{
+		auth.POST("/register", h.RegisterUser)
+		auth.POST("/login", h.Login)
+	}
+
+	api := router.Group("/api/v1")
+	api.Use(service.AuthMiddleware(h.authService))
+	{
+		api.GET("/users/profile", h.GetUserProfile)
+		api.POST("/users/verify-email", h.VerifyEmailCode)
+		api.POST("/users/resend-verification", h.ResendVerificationCode)
+
+		products := api.Group("/products")
+		{
+			products.GET("", h.ListProducts)
+			products.GET("/:id", h.GetProduct)
+
+			products.POST("", middleware.RequireAdmin(h.authService), h.CreateProduct)
+			products.PUT("/:id", middleware.RequireAdmin(h.authService), h.UpdateProduct)
+			products.DELETE("/:id", middleware.RequireAdmin(h.authService), h.DeleteProduct)
+		}
+
+		categories := api.Group("/categories")
+		{
+			categories.GET("", h.ListCategories)
+			categories.GET("/:id", h.GetCategory)
+
+			categories.POST("", middleware.RequireAdmin(h.authService), h.CreateCategory)
+			categories.PUT("/:id", middleware.RequireAdmin(h.authService), h.UpdateCategory)
+			categories.DELETE("/:id", middleware.RequireAdmin(h.authService), h.DeleteCategory)
+		}
+
+		orders := api.Group("/orders")
+		{
+			orders.POST("", h.CreateOrder)
+			orders.GET("", h.ListUserOrders)
+			orders.GET("/:id", h.GetOrder)
+			orders.PATCH("/:id/status", h.UpdateOrderStatus)
+		}
+	}
+
+	admin := router.Group("/api/v1/admin")
+	admin.Use(middleware.RequireAdmin(h.authService))
+	{
+		admin.GET("/orders", h.ListAllOrders)
+		admin.GET("/orders/:id", h.GetAnyOrder)
+		admin.PATCH("/orders/:id/status", h.AdminUpdateOrderStatus)
+	}
+
+	// Test routes
+	router.POST("/api/v1/test-email-code", h.TestEmailCode)
 }

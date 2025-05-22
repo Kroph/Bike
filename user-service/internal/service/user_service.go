@@ -35,8 +35,9 @@ type userService struct {
 }
 
 type Claims struct {
-	UserID    string `json:"user_id"`
-	TokenType string `json:"token_type,omitempty"`
+	UserID    string          `json:"user_id"`
+	Role      domain.UserRole `json:"role"`
+	TokenType string          `json:"token_type,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -55,6 +56,10 @@ func (s *userService) RegisterUser(ctx context.Context, user domain.User) (domai
 		return domain.User{}, errors.New("user with this email already exists")
 	}
 
+	if user.Role == "" || user.Role == domain.UserRoleAdmin {
+		user.Role = domain.UserRoleUser
+	}
+
 	return s.userRepo.Create(ctx, user)
 }
 
@@ -70,10 +75,11 @@ func (s *userService) AuthenticateUser(ctx context.Context, email, password stri
 		return "", domain.User{}, errors.New("invalid email or password")
 	}
 
-	// Generate JWT token
+	// Generate JWT token with role
 	expirationTime := time.Now().Add(s.jwtDuration)
 	claims := &Claims{
 		UserID: user.ID,
+		Role:   user.Role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

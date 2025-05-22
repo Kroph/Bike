@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"user-service/internal/domain"
@@ -37,16 +38,22 @@ func (r *PostgresUserRepository) Create(ctx context.Context, user domain.User) (
 		return domain.User{}, err
 	}
 
+	// Default role to user if not specified
+	if user.Role == "" {
+		user.Role = domain.UserRoleUser
+	}
+
 	query := `
-		INSERT INTO users (id, username, email, password, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, username, email, created_at, updated_at
+		INSERT INTO users (id, username, email, password, role, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, username, email, role, created_at, updated_at
 	`
 
 	user.ID = uuid.New().String()
 	user.CreatedAt = time.Now()
 	user.UpdatedAt = time.Now()
 
+	var roleStr string
 	err = r.db.QueryRowContext(
 		ctx,
 		query,
@@ -54,16 +61,19 @@ func (r *PostgresUserRepository) Create(ctx context.Context, user domain.User) (
 		user.Username,
 		user.Email,
 		string(hashedPassword),
+		string(user.Role),
 		user.CreatedAt,
 		user.UpdatedAt,
 	).Scan(
 		&user.ID,
 		&user.Username,
 		&user.Email,
+		&roleStr,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
 
+	user.Role = domain.UserRole(roleStr)
 	user.Password = "" // Clear password
 
 	if err != nil {
@@ -75,17 +85,19 @@ func (r *PostgresUserRepository) Create(ctx context.Context, user domain.User) (
 
 func (r *PostgresUserRepository) GetByID(ctx context.Context, id string) (domain.User, error) {
 	query := `
-		SELECT id, username, email, password, created_at, updated_at
+		SELECT id, username, email, password, role, created_at, updated_at
 		FROM users
 		WHERE id = $1
 	`
 
 	var user domain.User
+	var roleStr string
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&user.ID,
 		&user.Username,
 		&user.Email,
 		&user.Password,
+		&roleStr,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -97,22 +109,25 @@ func (r *PostgresUserRepository) GetByID(ctx context.Context, id string) (domain
 		return domain.User{}, err
 	}
 
+	user.Role = domain.UserRole(roleStr)
 	return user, nil
 }
 
 func (r *PostgresUserRepository) GetByEmail(ctx context.Context, email string) (domain.User, error) {
 	query := `
-		SELECT id, username, email, password, created_at, updated_at
+		SELECT id, username, email, password, role, created_at, updated_at
 		FROM users
 		WHERE email = $1
 	`
 
 	var user domain.User
+	var roleStr string
 	err := r.db.QueryRowContext(ctx, query, email).Scan(
 		&user.ID,
 		&user.Username,
 		&user.Email,
 		&user.Password,
+		&roleStr,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -124,14 +139,15 @@ func (r *PostgresUserRepository) GetByEmail(ctx context.Context, email string) (
 		return domain.User{}, err
 	}
 
+	user.Role = domain.UserRole(roleStr)
 	return user, nil
 }
 
 func (r *PostgresUserRepository) Update(ctx context.Context, user domain.User) error {
 	query := `
 		UPDATE users
-		SET username = $1, email = $2, updated_at = $3
-		WHERE id = $4
+		SET username = $1, email = $2, role = $3, updated_at = $4
+		WHERE id = $5
 	`
 
 	user.UpdatedAt = time.Now()
@@ -141,6 +157,7 @@ func (r *PostgresUserRepository) Update(ctx context.Context, user domain.User) e
 		query,
 		user.Username,
 		user.Email,
+		string(user.Role),
 		user.UpdatedAt,
 		user.ID,
 	)
@@ -156,7 +173,7 @@ func (r *PostgresUserRepository) Delete(ctx context.Context, id string) error {
 
 func (r *PostgresUserRepository) List(ctx context.Context, filter domain.UserFilter) ([]domain.User, int, error) {
 	baseQuery := `
-		SELECT id, username, email, created_at, updated_at
+		SELECT id, username, email, role, created_at, updated_at
 		FROM users
 		WHERE 1=1
 	`
@@ -172,14 +189,20 @@ func (r *PostgresUserRepository) List(ctx context.Context, filter domain.UserFil
 	var argIndex int = 1
 
 	if filter.Email != "" {
-		conditions += " AND email = $" + string(argIndex)
+		conditions += fmt.Sprintf(" AND email = $%d", argIndex)
 		args = append(args, filter.Email)
 		argIndex++
 	}
 
 	if filter.Username != "" {
-		conditions += " AND username = $" + string(argIndex)
+		conditions += fmt.Sprintf(" AND username = $%d", argIndex)
 		args = append(args, filter.Username)
+		argIndex++
+	}
+
+	if filter.Role != "" {
+		conditions += fmt.Sprintf(" AND role = $%d", argIndex)
+		args = append(args, string(filter.Role))
 		argIndex++
 	}
 
@@ -194,7 +217,7 @@ func (r *PostgresUserRepository) List(ctx context.Context, filter domain.UserFil
 		offset = (filter.Page - 1) * limit
 	}
 
-	query := baseQuery + conditions + " LIMIT $" + string(argIndex) + " OFFSET $" + string(argIndex+1)
+	query := baseQuery + conditions + fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
 	args = append(args, limit, offset)
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
@@ -206,16 +229,19 @@ func (r *PostgresUserRepository) List(ctx context.Context, filter domain.UserFil
 	var users []domain.User
 	for rows.Next() {
 		var user domain.User
+		var roleStr string
 		err := rows.Scan(
 			&user.ID,
 			&user.Username,
 			&user.Email,
+			&roleStr,
 			&user.CreatedAt,
 			&user.UpdatedAt,
 		)
 		if err != nil {
 			return nil, 0, err
 		}
+		user.Role = domain.UserRole(roleStr)
 		users = append(users, user)
 	}
 
