@@ -217,32 +217,3 @@ func mapOrderToProto(order domain.Order) *pb.OrderResponse {
 		UpdatedAt: timestamppb.New(order.UpdatedAt),
 	}
 }
-
-type PaymentGrpcHandler struct {
-	pb.UnimplementedPaymentServiceServer
-	// Add payment service when implemented
-}
-
-func NewPaymentGrpcHandler() *PaymentGrpcHandler {
-	return &PaymentGrpcHandler{}
-}
-
-func (h *PaymentGrpcHandler) CreatePayment(ctx context.Context, req *pb.CreatePaymentRequest) (*pb.PaymentResponse, error) {
-	// Implement when payment service is available
-	return nil, status.Errorf(codes.Unimplemented, "method CreatePayment not implemented")
-}
-
-func (h *PaymentGrpcHandler) GetPayment(ctx context.Context, req *pb.PaymentIDRequest) (*pb.PaymentResponse, error) {
-	// Implement when payment service is available
-	return nil, status.Errorf(codes.Unimplemented, "method GetPayment not implemented")
-}
-
-func (h *PaymentGrpcHandler) UpdatePaymentStatus(ctx context.Context, req *pb.UpdatePaymentStatusRequest) (*pb.PaymentResponse, error) {
-	// Implement when payment service is available
-	return nil, status.Errorf(codes.Unimplemented, "method UpdatePaymentStatus not implemented")
-}
-
-func (h *PaymentGrpcHandler) GetOrderPayments(ctx context.Context, req *pb.OrderIDRequest) (*pb.ListPaymentsResponse, error) {
-	// Implement when payment service is available
-	return nil, status.Errorf(codes.Unimplemented, "method GetOrderPayments not implemented")
-}

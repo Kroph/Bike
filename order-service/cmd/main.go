@@ -74,10 +74,6 @@ func main() {
 	orderHandler := handler.NewOrderGrpcHandler(orderService)
 	order.RegisterOrderServiceServer(grpcServer, orderHandler)
 
-	// Register payment service handler
-	paymentHandler := handler.NewPaymentGrpcHandler()
-	order.RegisterPaymentServiceServer(grpcServer, paymentHandler)
-
 	// Enable reflection for tools like grpcurl
 	reflection.Register(grpcServer)
 

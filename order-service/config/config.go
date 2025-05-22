@@ -59,9 +59,9 @@ func LoadConfig() *Config {
 	config.Redis.Addr = getEnv("REDIS_ADDR", "localhost:6379")
 	config.Redis.Password = getEnv("REDIS_PASSWORD", "")
 
-	redisDB, err := strconv.Atoi(getEnv("REDIS_DB", "2"))
+	redisDB, err := strconv.Atoi(getEnv("REDIS_DB", "3"))
 	if err != nil {
-		redisDB = 2
+		redisDB = 3
 	}
 	config.Redis.DB = redisDB
 

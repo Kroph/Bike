@@ -20,8 +20,7 @@ type GrpcClients struct {
 		category inventorypb.CategoryServiceClient
 	}
 	orderClient struct {
-		order   orderpb.OrderServiceClient
-		payment orderpb.PaymentServiceClient
+		order orderpb.OrderServiceClient
 	}
 }
 
@@ -49,7 +48,6 @@ func NewGrpcClients(userServiceURL, inventoryServiceURL, orderServiceURL string)
 		return nil, err
 	}
 	clients.orderClient.order = orderpb.NewOrderServiceClient(orderConn)
-	clients.orderClient.payment = orderpb.NewPaymentServiceClient(orderConn)
 
 	return clients, nil
 }
