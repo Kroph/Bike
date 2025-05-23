@@ -64,12 +64,8 @@ func (s *emailService) SendOrderConfirmation(to string, orderID string, orderDet
 <body>
     <div class="container">
         <div class="header">
-            <h1>Bicycle Store - Order Confirmation</h1>
+            <h1>Order Confirmation</h1>
         </div>
-        
-        <p>Dear Cyclist,</p>
-        
-        <p>Thank you for your order. We're pleased to confirm that we've received your order and it's being processed.</p>
         
         <h2>Order Details</h2>
         <p><strong>Order Number:</strong> {{.OrderID}}<br>
@@ -96,14 +92,6 @@ func (s *emailService) SendOrderConfirmation(to string, orderID string, orderDet
             </tr>
         </table>
         
-        <p>We'll send you another email when your bicycle is ready for delivery.</p>
-        
-        <p>Thank you for shopping with Bicycle Store!</p>
-        
-        <div class="footer">
-            <p>This is an automated email, please do not reply to this message.</p>
-            <p>Bicycle Store - Your Cycling Partner</p>
-        </div>
     </div>
 </body>
 </html>
